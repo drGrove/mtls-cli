@@ -1,4 +1,103 @@
 #!/usr/bin/env python3.7
+"""Prodaccess - A cli for creating short-lived client certiicates."""
 
-import cryptography
+import configparser
+import os
+import sys
 
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+
+import click
+
+__author__ = 'Danny Grove <danny@drgrovell.com>'
+VERSION = 'version 0.1'
+NAME = 'prodaccess'
+
+MISSING_CONFIGURATION = """
+Configuration missing for prodaccess.
+
+Please create an config.ini in ~/.config/prodaccess/config.ini
+"""
+MISSING_CONFIGURATION_FOR_SERVER = """
+Configuration missing for {server}:
+
+Please ensure that you have a configuration for you server similar to:
+[{server}]
+lifetime=18h
+email=foo@example.com
+url=ca.example.com
+fingerprint=0x000000000
+"""
+CONFIG_FOLDER_PATH = "%s/.config/prodaccess".format(os.environ['HOME'])
+CONFIG_FILE = 'config.ini'
+USER_KEY = "%s.key.gpg".format(os.environ['USER'])
+
+
+def print_version(ctx, param, value):
+    if not value or ctx.resilient_parsing:
+        return
+    click.echo(NAME + ' ' + VERSION)
+    ctx.exit()
+
+
+def check_for_config():
+    config_dir_exists = os.path.isdir(CONFIG_FOLDER_PATH)
+    config_exists = os.path.isfile("%s/%s".format(CONFIG_FOLDER_PATH,
+                                                  CONFIG_FILE))
+
+    if not config_dir_exists or not config_exists:
+        click.echo(MISSING_CONFIGURATION)
+        sys.exit(1)
+
+
+def get_config():
+    check_for_config()
+    config = configparser.ConfigParser()
+    config.read("%s/%s".format(CONFIG_FOLDER_PATH, CONFIG_FILE))
+    return config
+
+
+def server_in_config(config, server):
+    """Determines if the set server is in the config. Otherwise exit
+
+    Args:
+        config -- parsed ini config
+        server -- server string the matches ini config
+    """
+    if server is None and len(config.sections()) > 1:
+        click.echo('You have multiple servers configured, please selection' +
+                   'one with the --server (-s) option')
+    if server not in config:
+        print(MISSING_CONFIGURATION_FOR_SERVER)
+        sys.exit(1)
+
+
+def get_key_or_generate():
+    key = None
+    if os.path.isfile("%s/%s".format(CONFIG_FOLDER_PATH,
+                                     USER_KEY)):
+        return
+    else:
+        click.echo('Generating User Key')
+        key = rsa.generate_private_key(
+                public_exponent=65537,
+                key_size=4096,
+                backend=default_backend())
+    return key
+
+
+@click.command()
+@click.option('--lifetime', '-l', default='18h')
+@click.option('--server', '-s')
+@click.option('--version', '-v', is_flag=True, callback=print_version,
+              expose_value=False, is_eager=True)
+def main(lifetime='18h', server=None):
+    config = get_config()
+    server_in_config(config, server)
+    #key = get_key_or_generate()
+
+
+if __name__ == '__main__':
+    main()

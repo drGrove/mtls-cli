@@ -1,5 +1,5 @@
 cryptography==2.4.2
 python-gnupg==0.4.3
-request==2018.11.20
+requests2==2.16.0
 pycodestyle==2.4.0
 click==7.0

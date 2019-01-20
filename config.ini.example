@@ -1,0 +1,14 @@
+[DEFAULT]
+name=John Doe
+email=johndoe@example.com
+fingerprint=XXXXXXXX # PGP Fingerprint
+country=US
+state=CA
+locality=Mountain View
+common_name="${USER}@${HOST}"
+
+[myserver.com]
+lifetime=1y # Default to 18h
+email=johndoe@myserver.com
+url=ca.myserver.com # Location of prodaccess server
+server_fingerprint=XXXXXX # CA Server PGP Fingerprint

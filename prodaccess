@@ -101,7 +101,6 @@ class ProdAccess:
             click.echo('Encrypting and Signing data...')
         return self.gpg.encrypt(data, recipient, sign=sign)
 
-
     def get_key_or_generate(self):
         """Get users key from file or generate a new RSA Key.
 
@@ -161,7 +160,7 @@ class ProdAccess:
                                sign=True)
         payload = {
             'csr': str(enc_csr),
-            'lifetime': '18', # Currently locked 18 hours
+            'lifetime': '18',  # Currently locked 18 hours
         }
         server_url = self.config.get(self.server, 'url')
         print(json.dumps(payload))

@@ -6,7 +6,7 @@ setup: set-hooks
 
 set-hooks:
 	@echo "Setting commit hooks"
-	@ ([ ! -L ".git/hooks/pre-commit" ] && ln -s scripts/git-hooks/pre-commit.sh .git/hooks/pre-commit) || true
+	@ ([ ! -L ".git/hooks/pre-commit" ] && ln -s $(PWD)/scripts/git-hooks/pre-commit.sh .git/hooks/pre-commit) || true
 
 install:
 	@pip install -r requirements.txt

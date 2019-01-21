@@ -10,5 +10,5 @@ common_name="${USER}@${HOST}"
 [myserver.com]
 lifetime=1y # Default to 18h
 email=johndoe@myserver.com
-url=ca.myserver.com # Location of prodaccess server
+url=ca.myserver.com # Location of mtls server
 server_fingerprint=XXXXXX # CA Server PGP Fingerprint

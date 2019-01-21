@@ -1,5 +1,5 @@
 #!/usr/bin/env python3.7
-"""Prodaccess - A cli for creating short-lived client certiicates."""
+"""mtls (Mutual TLS) - A cli for creating short-lived client certiicates."""
 
 import configparser
 import os
@@ -19,12 +19,12 @@ import requests
 
 __author__ = 'Danny Grove <danny@drgrovell.com>'
 VERSION = 'version 0.1'
-NAME = 'prodaccess'
+NAME = 'mtls - Mutual TLS'
 
 
-class ProdAccess:
+class MutualTLS:
     MISSING_CONFIGURATION = """
-    Configuration missing for prodaccess at {}/{}
+    Configuration missing for mtls at {}/{}
     """
     MISSING_CONFIGURATION_FOR_SERVER = """
     Configuration missing for {server}:
@@ -37,7 +37,7 @@ class ProdAccess:
 
     For more details see config.ini.example
     """
-    CONFIG_FOLDER_PATH = '{}/.config/prodaccess'.format(os.environ['HOME'])
+    CONFIG_FOLDER_PATH = '{}/.config/mtls'.format(os.environ['HOME'])
     CONFIG_FILE = 'config.ini'
     USER_KEY = '{}.key.gpg'.format(os.environ['USER'])
     GNUPGHOME = os.environ.get('GNUPGHOME', '{}/{}'.format(os.environ['HOME'],
@@ -161,12 +161,13 @@ class ProdAccess:
         payload = {
             'csr': str(enc_csr),
             'lifetime': '18',  # Currently locked 18 hours
+            'host': os.environ.get('HOST', None),
+            'type': 'CREATE_CERTIFICATE'
         }
         server_url = self.config.get(self.server, 'url')
-        print(json.dumps(payload))
-        # r = requests.post(server_url, data=json.stringify(payload))
-        # response = r.json()
-        # print(response)
+        r = requests.post(server_url, json=payload)
+        response = r.json()
+        print(response)
 
 
 @click.command()
@@ -175,8 +176,8 @@ class ProdAccess:
               is_flag=True, callback=ProdAccess.print_version,
               expose_value=False, is_eager=True)
 def main(server=None):
-    prodaccess = ProdAccess(server)
-    prodaccess.run()
+    mtls = MutualTLS(server)
+    mtls.run()
 
 
 if __name__ == '__main__':

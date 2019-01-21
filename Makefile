@@ -15,7 +15,7 @@ env:
 	@source env/bin/activate
 
 lint:
-	@pycodestyle --first prodaccess
+	@pycodestyle --first mtls
 
 clean:
 	@rm -r env

@@ -1,5 +1,6 @@
 cryptography==2.4.2
 python-gnupg==0.4.3
 requests2==2.16.0
+PyInstaller==3.4
 pycodestyle==2.4.0
 click==7.0

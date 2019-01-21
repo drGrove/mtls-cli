@@ -1,4 +1,3 @@
-#!/usr/bin/env python3.7
 """mtls (Mutual TLS) - A cli for creating short-lived client certiicates."""
 
 import configparser
@@ -173,7 +172,7 @@ class MutualTLS:
 @click.command()
 @click.option('--server', '-s')
 @click.option('--version', '-v',
-              is_flag=True, callback=ProdAccess.print_version,
+              is_flag=True, callback=MutualTLS.print_version,
               expose_value=False, is_eager=True)
 def main(server=None):
     mtls = MutualTLS(server)

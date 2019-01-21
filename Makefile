@@ -1,4 +1,4 @@
-.PHONY: setup env clean lint
+.PHONY: setup env clean lint build
 SHELL := /bin/bash
 
 setup: set-hooks
@@ -16,6 +16,9 @@ env:
 
 lint:
 	@pycodestyle --first mtls
+
+build:
+	./env/bin/pyinstaller --onefile mtls.py
 
 clean:
 	@rm -r env

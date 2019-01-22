@@ -1,6 +1,8 @@
 """mtls (Mutual TLS) - A cli for creating short-lived client certiicates."""
 
 import os
+import shutil
+import subprocess
 import sys
 from configparser import ConfigParser
 
@@ -52,7 +54,108 @@ class MutualTLS:
     def run(self):
         key = self.get_key_or_generate()
         csr = self.generate_csr(key)
-        cert = self.encrypt_and_send_to_server(csr)
+        enc_cert = self.encrypt_and_send_to_server(csr)
+        if enc_cert is None:
+            click.echo('Could not retrieve certificate from server')
+            sys.exit(1)
+        click.echo('Decrypting Cert from server...')
+        cert = self.gpg.decrypt(str(enc_cert))
+        if not cert.ok or cert is None:
+            click.echo('Could not decrypt certificate')
+            sys.exit(1)
+        cert_file = '{}.crt'.format(self.server)
+        cert_file_path = '{}/{}'.format(self.CONFIG_FOLDER_PATH, cert_file)
+        with open(cert_file_path, 'w') as f:
+            f.write(str(cert))
+
+        paths = []
+        paths.append(self._firefox_cert_location())
+        self.place_certificates(cert_file_path, cert_file, paths)
+        self.update_cert_storage(cert_file_path)
+
+    def update_cert_storage(self, cert_file_path):
+        command = None
+        if sys.platform == 'linux' or sys.platform == 'linux2':
+            nssdb_path = os.path.join(os.environ['HOME'], '.pki/nssdb')
+            if not os.path.isdir(nssdb_path):
+                os.makedirs(nssdb_path)
+                subprocess.call([
+                    "certutil",
+                    "-d",
+                    nssdb_path,
+                    "-N",
+                    "--empty-password"
+                ])
+            command = [
+                'certutil',
+                '-A',
+                '-d',
+                nssdb_path,
+                '-t',
+                '"C,,"',
+                '-n',
+                self.server,
+                '-i',
+                cert_file_path
+            ]
+        elif sys.platform == 'darwin':
+            try:
+                subprocess.call([
+                    'security',
+                    'add-certificate',
+                    cert_file_path
+                ])
+                subprocess.call([
+                    'security',
+                    'add-trusted-cert',
+                    '-p',
+                    'ssl',
+                    cert_file_path
+                ])
+            except Exception as e:
+                click.echo('Could not add certificate to certificate store')
+                sys.exit(1)
+        else:
+            command = [
+                'certutil.exe',
+                '-viewstore',
+                '-user',
+                'root'
+            ]
+
+        try:
+            subprocess.call(command)
+        except Exception as e:
+            click.echo('Could not add certificate to certificate store')
+            click.echo(e)
+            sys.exit(1)
+
+    def place_certificates(self, cert_file_path, cert_file, paths):
+        for path in paths:
+            shutil.copyfile(cert_file_path, '{}/{}'.format(path, cert_file))
+
+    def _firefox_cert_location(self):
+        path = None
+        if sys.platform == 'linux' or sys.platform == 'linux2':
+            path = os.path.join(
+                os.environ['HOME'],
+                '.mozilla/certificates'
+            )
+        elif sys.platform == 'darwin':
+            # Make directory if it doesn't exist
+            path = os.path.join(
+                os.environ['HOME'],
+                '/Library/Application Support/Mozilla/Certificates'
+            )
+        elif sys.platform == 'win32':
+            path = os.path.join(
+                os.environ['USERPROFILE'],
+                '\\AppData\\Local\\Mozilla\\Certificates'
+            )
+        if path is not None:
+            if not os.path.isdir(path):
+                os.makedirs(path)
+        return path
 
     @staticmethod
     def print_version(ctx, param, value):
@@ -149,7 +252,14 @@ class MutualTLS:
             x509.NameAttribute(NameOID.LOCALITY_NAME, locality),
             x509.NameAttribute(NameOID.ORGANIZATION_NAME, organization_name),
             x509.NameAttribute(NameOID.COMMON_NAME, common_name),
-        ])).sign(key, hashes.SHA256(), default_backend())
+        ])).add_extension(
+            x509.SubjectAlternativeName([
+                # Describe what sites we want this certificate for.
+                x509.DNSName(self.server),
+                x509.DNSName('*.{}'.format(self.server)),
+            ]),
+            critical=False,
+        ).sign(key, hashes.SHA256(), default_backend())
         return csr
 
     def encrypt_and_send_to_server(self, csr):
@@ -166,7 +276,10 @@ class MutualTLS:
         server_url = self.config.get(self.server, 'url')
         r = requests.post(server_url, json=payload)
         response = r.json()
-        print(str(response))
+        if response.get('error', False):
+            click.echo(response.get('msg'))
+            sys.exit(1)
+        return str(response['data'])
 
 
 @click.command()

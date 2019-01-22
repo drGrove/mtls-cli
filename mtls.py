@@ -1,8 +1,8 @@
 """mtls (Mutual TLS) - A cli for creating short-lived client certiicates."""
 
-import configparser
 import os
 import sys
+from configparser import ConfigParser
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -81,7 +81,7 @@ class MutualTLS:
             config
         """
         self.check_for_config()
-        config = configparser.ConfigParser()
+        config = ConfigParser()
         config.read('{}/{}'.format(self.CONFIG_FOLDER_PATH, self.CONFIG_FILE))
         return config
 
@@ -154,7 +154,7 @@ class MutualTLS:
 
     def encrypt_and_send_to_server(self, csr):
         server_fingerprint = self.config.get(self.server, 'server_fingerprint')
-        enc_csr = self.encrypt(bytes(str(csr), 'utf-8'),
+        enc_csr = self.encrypt(csr.public_bytes(serialization.Encoding.PEM),
                                server_fingerprint,
                                sign=True)
         payload = {
@@ -166,7 +166,7 @@ class MutualTLS:
         server_url = self.config.get(self.server, 'url')
         r = requests.post(server_url, json=payload)
         response = r.json()
-        print(response)
+        print(str(response))
 
 
 @click.command()

@@ -15,10 +15,10 @@ env:
 	@source env/bin/activate
 
 lint:
-	@pycodestyle --first mtls
+	@pycodestyle --first mtls.py
 
 build:
-	./env/bin/pyinstaller --onefile mtls.py
+	./env/bin/pyinstaller --onefile mtls.spec
 
 clean:
-	@rm -r env
+	@rm -r env build dist mtls.spec

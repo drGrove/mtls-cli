@@ -38,11 +38,11 @@ class MutualTLS:
 
     For more details see config.ini.example
     """
-    CONFIG_FOLDER_PATH = '{}/.config/mtls'.format(os.environ['HOME'])
+    CONFIG_FOLDER_PATH = '{}/.config/mtls'.format(os.getenv('HOME'))
     CONFIG_FILE = 'config.ini'
-    USER_KEY = '{}.key.gpg'.format(os.environ['USER'])
-    GNUPGHOME = os.environ.get('GNUPGHOME', '{}/{}'.format(os.environ['HOME'],
-                                                           '.gnupg'))
+    USER_KEY = '{}.key.gpg'.format(os.getenv('USER'))
+    GNUPGHOME = os.getenv('GNUPGHOME', '{}/{}'.format(os.getenv('HOME'),
+                                                      '.gnupg'))
 
     def __init__(self, server):
         self.gpg = gnupg.GPG(gnupghome=self.GNUPGHOME)
@@ -54,29 +54,40 @@ class MutualTLS:
     def run(self):
         key = self.get_key_or_generate()
         csr = self.generate_csr(key)
-        enc_cert = self.encrypt_and_send_to_server(csr)
-        if enc_cert is None:
+        cert_str = self.sign_and_send_to_server(csr)
+        if cert_str is None:
             click.echo('Could not retrieve certificate from server')
             sys.exit(1)
         click.echo('Decrypting Cert from server...')
-        cert = self.gpg.decrypt(str(enc_cert))
-        if not cert.ok or cert is None:
+        cert = self.covert_to_cert(cert_str)
+        if cert is None:
             click.echo('Could not decrypt certificate')
             sys.exit(1)
         cert_file = '{}.crt'.format(self.server)
         cert_file_path = '{}/{}'.format(self.CONFIG_FOLDER_PATH, cert_file)
-        with open(cert_file_path, 'w') as f:
-            f.write(str(cert))
+        with open(cert_file_path, 'wb') as f:
+            f.write(cert.public_bytes(serialization.Encoding.DER))
 
         paths = []
         paths.append(self._firefox_cert_location())
         self.place_certificates(cert_file_path, cert_file, paths)
         self.update_cert_storage(cert_file_path)
 
+    def covert_to_cert(self, cert):
+        cert = None
+        try:
+            cert = x509.load_pem_x509_certificate(
+                deenc_cert,
+                backend=default_backend()
+            )
+        except Exception as e:
+            print('Failure to load PEM x509 Certificate: {}'.format(e))
+        return cert
+
     def update_cert_storage(self, cert_file_path):
         command = None
         if sys.platform == 'linux' or sys.platform == 'linux2':
-            nssdb_path = os.path.join(os.environ['HOME'], '.pki/nssdb')
+            nssdb_path = os.path.join(os.getenv('HOME'), '.pki/nssdb')
             if not os.path.isdir(nssdb_path):
                 os.makedirs(nssdb_path)
                 subprocess.call([
@@ -138,18 +149,18 @@ class MutualTLS:
         path = None
         if sys.platform == 'linux' or sys.platform == 'linux2':
             path = os.path.join(
-                os.environ['HOME'],
+                os.getenv('HOME'),
                 '.mozilla/certificates'
             )
         elif sys.platform == 'darwin':
             # Make directory if it doesn't exist
             path = os.path.join(
-                os.environ['HOME'],
+                os.getenv('HOME'),
                 '/Library/Application Support/Mozilla/Certificates'
             )
         elif sys.platform == 'win32':
             path = os.path.join(
-                os.environ['USERPROFILE'],
+                os.getenv('USERPROFILE'),
                 '\\AppData\\Local\\Mozilla\\Certificates'
             )
         if path is not None:
@@ -262,17 +273,23 @@ class MutualTLS:
         ).sign(key, hashes.SHA256(), default_backend())
         return csr
 
-    def encrypt_and_send_to_server(self, csr):
+    def sign_and_send_to_server(self, csr):
         server_fingerprint = self.config.get(self.server, 'server_fingerprint')
-        enc_csr = self.encrypt(csr.public_bytes(serialization.Encoding.PEM),
-                               server_fingerprint,
-                               sign=True)
+        csr_public_bytes = csr.public_bytes(serialization.Encoding.PEM)
+        click.echo('Signing CSR for verification on server...')
+        signature = self.gpg.sign(
+            csr_public_bytes,
+            detach=True,
+            clearsign=False
+        )
         payload = {
-            'csr': str(enc_csr),
+            'csr': str(csr_public_bytes.decode('utf-8')),
+            'signature': str(signature),
             'lifetime': '18',  # Currently locked 18 hours
-            'host': os.environ.get('HOST', None),
+            'host': os.getenv('HOST'),
             'type': 'CREATE_CERTIFICATE'
         }
+        print(payload)
         server_url = self.config.get(self.server, 'url')
         r = requests.post(server_url, json=payload)
         response = r.json()

@@ -2,7 +2,7 @@
 SHELL := /bin/bash
 
 setup: set-hooks
-	@ ([ ! -d "env" ] && python3 -m virtualenv env) || true
+	@ ([ ! -d "env" ] && virtualenv --python python3 env) || true
 
 set-hooks:
 	@echo "Setting commit hooks"

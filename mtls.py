@@ -59,9 +59,9 @@ class MutualTLS:
             click.echo('Could not retrieve certificate from server')
             sys.exit(1)
         click.echo('Decrypting Cert from server...')
-        cert = self.covert_to_cert(cert_str)
+        cert = self.convert_to_cert(cert_str)
         if cert is None:
-            click.echo('Could not decrypt certificate')
+            click.echo('Could not convert to certificate')
             sys.exit(1)
         cert_file = '{}.crt'.format(self.server)
         cert_file_path = '{}/{}'.format(self.CONFIG_FOLDER_PATH, cert_file)
@@ -73,16 +73,16 @@ class MutualTLS:
         self.place_certificates(cert_file_path, cert_file, paths)
         self.update_cert_storage(cert_file_path)
 
-    def covert_to_cert(self, cert):
-        cert = None
+    def convert_to_cert(self, cert):
         try:
+            cert = bytes(str(cert), 'utf-8')
             cert = x509.load_pem_x509_certificate(
-                deenc_cert,
+                cert,
                 backend=default_backend()
             )
+            return cert
         except Exception as e:
             print('Failure to load PEM x509 Certificate: {}'.format(e))
-        return cert
 
     def update_cert_storage(self, cert_file_path):
         command = None
@@ -279,17 +279,17 @@ class MutualTLS:
         click.echo('Signing CSR for verification on server...')
         signature = self.gpg.sign(
             csr_public_bytes,
+            keyid=self.config.get(self.server, 'fingerprint'),
             detach=True,
-            clearsign=False
+            clearsign=True
         )
         payload = {
             'csr': str(csr_public_bytes.decode('utf-8')),
             'signature': str(signature),
             'lifetime': '18',  # Currently locked 18 hours
-            'host': os.getenv('HOST'),
+            'host': self.config.get(self.server, 'host'),
             'type': 'CREATE_CERTIFICATE'
         }
-        print(payload)
         server_url = self.config.get(self.server, 'url')
         r = requests.post(server_url, json=payload)
         response = r.json()

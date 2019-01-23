@@ -10,6 +10,7 @@ set-hooks:
 
 install:
 	@pip install -r requirements.txt
+	@easy_install PyInstaller==3.4
 
 env:
 	@source env/bin/activate
@@ -21,4 +22,4 @@ build:
 	./env/bin/pyinstaller --onefile mtls.spec
 
 clean:
-	@rm -r env build dist mtls.spec
+	@rm -r env build dist

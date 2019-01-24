@@ -1,25 +1,26 @@
 .PHONY: setup env clean lint build
 SHELL := /bin/bash
+PIP_ENV := $(shell pipenv --venv)
 
 setup: set-hooks
-	@ ([ ! -d "env" ] && virtualenv --python python3 env) || true
+	@pipenv update
+	@pipenv install --dev
+	@pipenv lock -r > requirements.txt
+
 
 set-hooks:
 	@echo "Setting commit hooks"
 	@ ([ ! -L ".git/hooks/pre-commit" ] && ln -s $(PWD)/scripts/git-hooks/pre-commit.sh .git/hooks/pre-commit) || true
 
 install:
-	@pip install -r requirements.txt
-	@easy_install PyInstaller==3.4
-
-env:
-	@source env/bin/activate
+	@$(PIP_ENV)/bin/pip install -r requirements.txt
+	@$(PIP_ENV)/bin/easy_install PyInstaller==3.4
 
 lint:
-	@pycodestyle --first mtls.py
+	@$(PIP_ENV)/bin/pycodestyle --first mtls.py
 
 build:
-	./env/bin/pyinstaller --onefile mtls.spec
+	$(PIP_ENV)/bin/pyinstaller --onefile mtls.spec
 
 clean:
-	@rm -r env build dist
+	@rm -r build dist

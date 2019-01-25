@@ -9,8 +9,16 @@ To begin development run the following commands:
 
 ```shell
 make setup
-source env/bin/activate
-make install
 ```
 
-If you need to clear out your virtualenv run `deactivate && make clean`
+You can run without compiling by using:
+
+```shell
+make run SERVICE=myservice
+```
+
+To build a binary:
+
+```shell
+make build
+```

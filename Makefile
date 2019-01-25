@@ -20,7 +20,10 @@ lint:
 	@$(PIP_ENV)/bin/pycodestyle --first mtls.py
 
 build:
-	$(PIP_ENV)/bin/pyinstaller --onefile mtls.spec
+	@$(PIP_ENV)/bin/pyinstaller --onefile mtls.spec
+
+run:
+	@$(PIP_ENV)/bin/python mtls.py -s $(SERVER)
 
 clean:
 	@rm -r build dist

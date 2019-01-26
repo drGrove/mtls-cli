@@ -6,6 +6,7 @@ setup: set-hooks
 	@pipenv update
 	@pipenv install --dev
 	@pipenv lock -r > requirements.txt
+	@$(PIP_ENV)/bin/easy_install pyinstaller==3.4
 
 
 set-hooks:
@@ -14,7 +15,6 @@ set-hooks:
 
 install:
 	@$(PIP_ENV)/bin/pip install -r requirements.txt
-	@$(PIP_ENV)/bin/easy_install PyInstaller==3.4
 
 lint:
 	@$(PIP_ENV)/bin/pycodestyle --first mtls.py
@@ -26,4 +26,4 @@ run:
 	@$(PIP_ENV)/bin/python mtls.py -s $(SERVER)
 
 clean:
-	@rm -r build dist
+	@rm -r build dist $(PIP_ENV)

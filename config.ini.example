@@ -6,8 +6,8 @@ fingerprint=XXXXXXXX # PGP Fingerprint
 country=US
 state=CA
 locality=Mountain View
-common_name="myuser@myhost"
-organization="myhost"
+common_name=myuser@myhost
+organization=myhost
 
 [myserver.com]
 lifetime=1y # Default to 18h

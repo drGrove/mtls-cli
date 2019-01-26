@@ -34,7 +34,6 @@ class MutualTLS:
     [{server}]
     email=foo@example.com
     url=ca.example.com
-    server_fingerprint=XXXXX
 
     For more details see config.ini.example
     """

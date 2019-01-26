@@ -273,7 +273,6 @@ class MutualTLS:
         return csr
 
     def sign_and_send_to_server(self, csr):
-        server_fingerprint = self.config.get(self.server, 'server_fingerprint')
         csr_public_bytes = csr.public_bytes(serialization.Encoding.PEM)
         click.echo('Signing CSR for verification on server...')
         signature = self.gpg.sign(

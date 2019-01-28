@@ -1,10 +1,12 @@
 """mtls (Mutual TLS) - A cli for creating short-lived client certiicates."""
 
 import os
+import random
 import shutil
 import subprocess
 import sys
 from configparser import ConfigParser
+from pathlib import Path
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -13,6 +15,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 
+import OpenSSL
 import click
 import gnupg
 import json
@@ -49,28 +52,56 @@ class MutualTLS:
         self.config = self.get_config()
         self.server = server
         self.server_in_config()
+        self.openssl_format = serialization.PrivateFormat.TraditionalOpenSSL
+        self.no_encyption = serialization.NoEncryption()
 
     def run(self):
+        csr = self.get_csr()
         key = self.get_key_or_generate()
-        csr = self.generate_csr(key)
+        if csr is None:
+            csr = self.generate_csr(key)
         cert_str = self.sign_and_send_to_server(csr)
         if cert_str is None:
             click.echo('Could not retrieve certificate from server')
             sys.exit(1)
-        click.echo('Decrypting Cert from server...')
         cert = self.convert_to_cert(cert_str)
         if cert is None:
             click.echo('Could not convert to certificate')
             sys.exit(1)
-        cert_file = '{}.crt'.format(self.server)
-        cert_file_path = '{}/{}'.format(self.CONFIG_FOLDER_PATH, cert_file)
+        pfx_file = '{}.pfx'.format(self.server)
+        cert_file = '{}.pem'.format(self.server)
+        cert_file_path = '{}/{}'.format(self.CONFIG_FOLDER_PATH, pfx_file)
+        ca_cert_file_path = '{}/{}'.format(self.CONFIG_FOLDER_PATH, cert_file)
+        p12 = OpenSSL.crypto.PKCS12()
+        pkey = OpenSSL.crypto.PKey.from_cryptography_key(key)
+        certificate = OpenSSL.crypto.X509.from_cryptography(cert)
+        p12.set_privatekey(pkey)
+        p12.set_certificate(certificate)
+        pwd = self._genPW()
         with open(cert_file_path, 'wb') as f:
-            f.write(cert.public_bytes(serialization.Encoding.DER))
+            f.write(p12.export(passphrase=bytes(pwd, 'utf-8')))
+        self.update_cert_storage(cert_file_path, pwd, ca_cert_file_path)
 
-        paths = []
-        paths.append(self._firefox_cert_location())
-        self.place_certificates(cert_file_path, cert_file, paths)
-        self.update_cert_storage(cert_file_path)
+    def get_csr(self):
+        csr_path = '{}/{}.csr.asc'.format(self.CONFIG_FOLDER_PATH, self.server)
+        if not os.path.isfile(csr_path):
+            return None
+        click.echo('Decrypting CSR...')
+        csr_str = str(self.gpg.decrypt_file(open(csr_path, 'rb')))
+        return x509.load_pem_x509_csr(bytes(csr_str, 'utf-8'),
+                                      default_backend())
+
+    def _genPW(self):
+        chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        chars += '01234567890'
+        chars += '!@#$%^&*()-_+=|?><,.'
+        pw = ""
+        for c in range(50):
+            pw += random.choice(chars)
+        if len(pw) < 50:
+            click.echo('Failed to generate appropriate password.')
+            sys.exit(1)
+        return pw
 
     def convert_to_cert(self, cert):
         try:
@@ -83,31 +114,28 @@ class MutualTLS:
         except Exception as e:
             print('Failure to load PEM x509 Certificate: {}'.format(e))
 
-    def update_cert_storage(self, cert_file_path):
-        command = None
+    def update_cert_storage(self, cert_file_path, cert_pw, ca_cert_file_path):
         if sys.platform == 'linux' or sys.platform == 'linux2':
-            nssdb_path = os.path.join(os.getenv('HOME'), '.pki/nssdb')
-            if not os.path.isdir(nssdb_path):
-                os.makedirs(nssdb_path)
-                subprocess.call([
-                    "certutil",
-                    "-d",
-                    nssdb_path,
-                    "-N",
-                    "--empty-password"
-                ])
-            command = [
-                'certutil',
-                '-A',
-                '-d',
-                nssdb_path,
-                '-t',
-                '"C,,"',
-                '-n',
-                self.server,
-                '-i',
-                cert_file_path
-            ]
+            paths = [os.path.join(os.getenv('HOME'), '.pki/nssdb')]
+            paths += self._certdb_location()
+            paths += self._firefox_certdb_locations()
+            for path in paths:
+                try:
+                    subprocess.call([
+                        'pk12util',
+                        '-i',
+                        cert_file_path,
+                        '-d',
+                        path,
+                        '-W',
+                        cert_pw,
+                        '-n',
+                        self.config.get(self.server, 'host')
+                    ])
+                except Exception as e:
+                    cse = 'Could not add certificate to certificate store'
+                    click.echo(cse)
+                    click.echo(e)
         elif sys.platform == 'darwin':
             try:
                 subprocess.call([
@@ -123,49 +151,64 @@ class MutualTLS:
                     cert_file_path
                 ])
             except Exception as e:
-                click.echo('Could not add certificate to certificate store')
-                sys.exit(1)
+                click.echo(
+                    'Could not add certificate to certificate store'
+                )
         else:
-            command = [
-                'certutil.exe',
-                '-viewstore',
-                '-user',
-                'root'
-            ]
+            try:
+                subprocess.call([
+                    'certutil.exe',
+                    '-viewstore',
+                    '-user',
+                    'root'
+                ])
+            except Exception as e:
+                click.echo('Could not add certificate to certificate store')
+                click.echo(e)
 
-        try:
-            subprocess.call(command)
-        except Exception as e:
-            click.echo('Could not add certificate to certificate store')
-            click.echo(e)
-            sys.exit(1)
-
-    def place_certificates(self, cert_file_path, cert_file, paths):
-        for path in paths:
-            shutil.copyfile(cert_file_path, '{}/{}'.format(path, cert_file))
-
-    def _firefox_cert_location(self):
-        path = None
+    def _certdb_location(self):
+        paths = []
         if sys.platform == 'linux' or sys.platform == 'linux2':
-            path = os.path.join(
+            nssdb_path = os.path.join(os.getenv('HOME'), '.pki/nssdb')
+            if not os.path.isdir(nssdb_path):
+                os.makedirs(nssdb_path)
+                # This assumes that you're using an encrypted hard drive
+                # Othewise we need to look into a way to allow user input
+                # Probably swapping subprocess.call with subprocess.popen so
+                # that users can manually enter passwords
+                subprocess.call([
+                    "certutil",
+                    "-d",
+                    nssdb_path,
+                    "-N",
+                    "--empty-password"
+                ])
+        return paths
+
+    def _firefox_certdb_locations(self):
+        base_path = None
+        paths = []
+        if sys.platform == 'linux' or sys.platform == 'linux2':
+            base_path = os.path.join(
                 os.getenv('HOME'),
-                '.mozilla/certificates'
+                '.mozilla/firefox'
             )
         elif sys.platform == 'darwin':
             # Make directory if it doesn't exist
-            path = os.path.join(
+            base_path = os.path.join(
                 os.getenv('HOME'),
-                '/Library/Application Support/Mozilla/Certificates'
+                '/Library/Application Support/Firefox'
             )
         elif sys.platform == 'win32':
-            path = os.path.join(
+            base_path = os.path.join(
                 os.getenv('USERPROFILE'),
-                '\\AppData\\Local\\Mozilla\\Certificates'
+                '\\AppData\\Local\\Firefox'
             )
-        if path is not None:
-            if not os.path.isdir(path):
-                os.makedirs(path)
-        return path
+        if base_path is not None:
+            posix_paths = list(Path(base_path).rglob('cert*.db'))
+            for pp in posix_paths:
+                paths.append('/'.join(str(pp).split('/')[:-1]))
+        return paths
 
     @staticmethod
     def print_version(ctx, param, value):
@@ -237,11 +280,11 @@ class MutualTLS:
                     public_exponent=65537,
                     key_size=4096,
                     backend=default_backend())
-            openssl_format = serialization.PrivateFormat.TraditionalOpenSSL
-            no_encyption = serialization.NoEncryption()
-            key_data = key.private_bytes(encoding=serialization.Encoding.PEM,
-                                         format=openssl_format,
-                                         encryption_algorithm=no_encyption)
+            key_data = key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=self.openssl_format,
+                encryption_algorithm=self.no_encyption
+            )
             user_fingerprint = self.config.get(self.server, 'fingerprint')
             encrypted_key = self.encrypt(key_data, user_fingerprint)
             user_email = self.config.get(self.server, 'email')
@@ -262,15 +305,54 @@ class MutualTLS:
             x509.NameAttribute(NameOID.LOCALITY_NAME, locality),
             x509.NameAttribute(NameOID.ORGANIZATION_NAME, organization_name),
             x509.NameAttribute(NameOID.COMMON_NAME, common_name),
-        ])).add_extension(
-            x509.SubjectAlternativeName([
-                # Describe what sites we want this certificate for.
-                x509.DNSName(self.server),
-                x509.DNSName('*.{}'.format(self.server)),
-            ]),
-            critical=False,
-        ).sign(key, hashes.SHA256(), default_backend())
+        ])).sign(key, hashes.SHA256(), default_backend())
+        csr_fname = '{}.csr.asc'.format(self.server)
+        with open(
+            '{}/{}'.format(self.CONFIG_FOLDER_PATH, csr_fname),
+            'wb'
+        ) as f:
+            enc_csr = self.encrypt(
+                csr.public_bytes(serialization.Encoding.PEM).decode('utf-8'),
+                self.config.get(self.server, 'fingerprint')
+            )
+            f.write(bytes(str(enc_csr), 'utf-8'))
         return csr
+
+    def _get_path(self, path):
+        if not os.path.isabs(path):
+            return os.path.abspath(
+                os.path.join(
+                    self.CONFIG_FOLDER_PATH,
+                    path
+                )
+            )
+
+    def send_request(self, url, payload, verify=True, attempts=0):
+        if attempts == 4:
+            raise TooManyAttemptsError()
+        try:
+            r = requests.post(
+                url,
+                json=payload,
+                verify=verify
+            )
+        except requests.exceptions.SSLError:
+            ca_location = self.config.get(self.server, 'ca_location')
+            ca_path = self._get_path(ca_location)
+            if os.path.isfile(ca_path):
+                verify = ca_path
+            else:
+                verify = False
+                click.echo('Disabling SSL Verification')
+                click.echo('Please get a Certificate from your Root CA')
+            if attempts > 1:
+                verify = False
+            r = self.send_request(
+                url,
+                payload,
+                verify=verify,
+                attempts=(attempts + 1))
+        return r
 
     def sign_and_send_to_server(self, csr):
         csr_public_bytes = csr.public_bytes(serialization.Encoding.PEM)
@@ -282,19 +364,19 @@ class MutualTLS:
             clearsign=True
         )
         payload = {
-            'csr': str(csr_public_bytes.decode('utf-8')),
+            'csr': csr_public_bytes.decode('utf-8'),
             'signature': str(signature),
             'lifetime': '18',  # Currently locked 18 hours
             'host': self.config.get(self.server, 'host'),
             'type': 'CREATE_CERTIFICATE'
         }
         server_url = self.config.get(self.server, 'url')
-        r = requests.post(server_url, json=payload)
-        response = r.json()
+        response = self.send_request(server_url, payload)
+        response = response.json()
         if response.get('error', False):
             click.echo(response.get('msg'))
             sys.exit(1)
-        return str(response['data'])
+        return str(response['cert'])
 
 
 @click.command()

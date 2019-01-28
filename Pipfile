@@ -1,0 +1,17 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+
+[packages]
+cryptography = "==2.4.2"
+python-gnupg = "==0.4.3"
+requests2 = "==2.16.0"
+pycodestyle = "==2.4.0"
+click = "==7.0"
+pyOpenSSL = "==19.0.0"
+
+[requires]
+python_version = "3.7"

@@ -1,0 +1,15 @@
+-i https://pypi.org/simple
+asn1crypto==0.24.0
+certifi==2018.11.29
+cffi==1.11.5
+chardet==3.0.4
+click==7.0
+cryptography==2.4.2
+idna==2.5
+pycodestyle==2.4.0
+pycparser==2.19
+pyopenssl==19.0.0
+python-gnupg==0.4.3
+requests2==2.16.0
+six==1.12.0
+urllib3==1.21.1

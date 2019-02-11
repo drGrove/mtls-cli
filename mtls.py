@@ -40,11 +40,16 @@ class MutualTLS:
 
     For more details see config.ini.example
     """
-    CONFIG_FOLDER_PATH = '{}/.config/mtls'.format(os.getenv('HOME'))
+    CONFIG_FOLDER_PATH = '{home}/.config/mtls'.format(home=os.getenv('HOME'))
     CONFIG_FILE = 'config.ini'
-    USER_KEY = '{}.key.gpg'.format(os.getenv('USER'))
-    GNUPGHOME = os.getenv('GNUPGHOME', '{}/{}'.format(os.getenv('HOME'),
-                                                      '.gnupg'))
+    USER_KEY = '{user}.key.gpg'.format(user=os.getenv('USER'))
+    GNUPGHOME = os.getenv(
+        'GNUPGHOME',
+        '{home}/{gnupghome}'.format(
+            home=os.getenv('HOME'),
+            gnupghome='.gnupg'
+        )
+    )
 
     def __init__(self, server):
         self.gpg = gnupg.GPG(gnupghome=self.GNUPGHOME)
@@ -54,8 +59,13 @@ class MutualTLS:
         self.server_in_config()
         self.openssl_format = serialization.PrivateFormat.TraditionalOpenSSL
         self.no_encyption = serialization.NoEncryption()
+        self.server_folder = "{config_path}/{server}".format(
+            config_path=self.CONFIG_FOLDER_PATH,
+            server=server
+        )
 
     def run(self):
+        os.makedirs(self.server_folder, exist_ok=True)
         csr = self.get_csr()
         key = self.get_key_or_generate()
         if csr is None:
@@ -68,22 +78,40 @@ class MutualTLS:
         if cert is None:
             click.echo('Could not convert to certificate')
             sys.exit(1)
-        pfx_file = '{}.pfx'.format(self.server)
-        cert_file = '{}.pem'.format(self.server)
-        cert_file_path = '{}/{}'.format(self.CONFIG_FOLDER_PATH, pfx_file)
-        ca_cert_file_path = '{}/{}'.format(self.CONFIG_FOLDER_PATH, cert_file)
+        pfx_file = '{server}.pfx'.format(server=self.server)
+        cert_file = '{server}.pem'.format(server=self.server)
+        cert_file_path = '{server_folder}/{filename}'.format(
+            server_folder=self.server_folder,
+            filename=pfx_file)
+        ca_cert_file_path = '{server_folder}/{cert_file_name}'.format(
+            server_folder=self.server_folder,
+            cert_file_name=cert_file
+        )
         p12 = OpenSSL.crypto.PKCS12()
         pkey = OpenSSL.crypto.PKey.from_cryptography_key(key)
         certificate = OpenSSL.crypto.X509.from_cryptography(cert)
         p12.set_privatekey(pkey)
         p12.set_certificate(certificate)
+        p12.set_friendlyname(
+            "{org} - {cn}@{host}".format(
+                org=self.config.get(
+                    self.server,
+                    'organization_name'
+                ),
+                cn=self.config.get(self.server, 'common_name'),
+                host=self.config.get(self.server, 'host')
+            )
+        )
         pwd = self._genPW()
         with open(cert_file_path, 'wb') as f:
             f.write(p12.export(passphrase=bytes(pwd, 'utf-8')))
         self.update_cert_storage(cert_file_path, pwd, ca_cert_file_path)
 
     def get_csr(self):
-        csr_path = '{}/{}.csr.asc'.format(self.CONFIG_FOLDER_PATH, self.server)
+        csr_path = '{server_folder}/{server}.csr.asc'.format(
+            server_folder=self.server_folder,
+            server=self.server
+        )
         if not os.path.isfile(csr_path):
             return None
         click.echo('Decrypting CSR...')
@@ -114,6 +142,48 @@ class MutualTLS:
         except Exception as e:
             print('Failure to load PEM x509 Certificate: {}'.format(e))
 
+    def delete_cert_from_storage(self):
+        if sys.platform == 'linux' or sys.platform == 'linux2':
+            paths = [os.path.join(os.getenv('HOME'), '.pki/nssdb')]
+            paths += self._certdb_location()
+            paths += self._firefox_certdb_locations()
+            for path in paths:
+                try:
+                    subprocess.call([
+                        'certutil',
+                        '-D',
+                        '-d',
+                        path,
+                        '-n',
+                        "{org} - {cn}@{host}".format(
+                            org=self.config.get(
+                                self.server,
+                                'organization_name'
+                            ),
+                            cn=self.config.get(self.server, 'common_name'),
+                            host=config.get(self.server, 'host')
+                        )
+                    ])
+                except Exception as e:
+                    cse = 'Could not delete certificate from certificate store'
+                    click.echo(cse)
+                    click.echo(e)
+        elif sys.platform == 'darwin':
+            try:
+                subprocess.call([
+                    'security',
+                    'delete-certificate',
+                    self.config.get(self.server, 'host')
+                ])
+            except Exception as e:
+                click.echo(
+                    'Could not delete certificate from certificate store'
+                )
+        else:
+            click.echo(
+                'This is not currently support on your operating system.'
+            )
+
     def update_cert_storage(self, cert_file_path, cert_pw, ca_cert_file_path):
         if sys.platform == 'linux' or sys.platform == 'linux2':
             paths = [os.path.join(os.getenv('HOME'), '.pki/nssdb')]
@@ -128,9 +198,7 @@ class MutualTLS:
                         '-d',
                         path,
                         '-W',
-                        cert_pw,
-                        '-n',
-                        self.config.get(self.server, 'host')
+                        cert_pw
                     ])
                 except Exception as e:
                     cse = 'Could not add certificate to certificate store'
@@ -155,16 +223,9 @@ class MutualTLS:
                     'Could not add certificate to certificate store'
                 )
         else:
-            try:
-                subprocess.call([
-                    'certutil.exe',
-                    '-viewstore',
-                    '-user',
-                    'root'
-                ])
-            except Exception as e:
-                click.echo('Could not add certificate to certificate store')
-                click.echo(e)
+            click.echo(
+                'This is not currently support on your operating system.'
+            )
 
     def _certdb_location(self):
         paths = []
@@ -306,9 +367,12 @@ class MutualTLS:
             x509.NameAttribute(NameOID.ORGANIZATION_NAME, organization_name),
             x509.NameAttribute(NameOID.COMMON_NAME, common_name),
         ])).sign(key, hashes.SHA256(), default_backend())
-        csr_fname = '{}.csr.asc'.format(self.server)
+        csr_fname = '{server}.csr.asc'.format(server=self.server)
         with open(
-            '{}/{}'.format(self.CONFIG_FOLDER_PATH, csr_fname),
+            '{server_folder}/{filename}'.format(
+                self.server_path,
+                csr_fname
+            ),
             'wb'
         ) as f:
             enc_csr = self.encrypt(
@@ -372,7 +436,11 @@ class MutualTLS:
         }
         server_url = self.config.get(self.server, 'url')
         response = self.send_request(server_url, payload)
-        response = response.json()
+        try:
+            response = response.json()
+        except Exception:
+            click.echo(response.text)
+            sys.exit(1)
         if response.get('error', False):
             click.echo(response.get('msg'))
             sys.exit(1)

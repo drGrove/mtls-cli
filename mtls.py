@@ -19,6 +19,8 @@ import OpenSSL
 import click
 import gnupg
 import json
+import nss.error as nss_error
+import nss.nss as nss
 import requests
 
 __author__ = 'Danny Grove <danny@drgrovell.com>'
@@ -186,24 +188,25 @@ class MutualTLS:
 
     def update_cert_storage(self, cert_file_path, cert_pw, ca_cert_file_path):
         if sys.platform == 'linux' or sys.platform == 'linux2':
-            paths = [os.path.join(os.getenv('HOME'), '.pki/nssdb')]
+            paths = []
             paths += self._certdb_location()
             paths += self._firefox_certdb_locations()
             for path in paths:
-                try:
-                    subprocess.call([
-                        'pk12util',
-                        '-i',
-                        cert_file_path,
-                        '-d',
-                        path,
-                        '-W',
-                        cert_pw
-                    ])
-                except Exception as e:
-                    cse = 'Could not add certificate to certificate store'
-                    click.echo(cse)
-                    click.echo(e)
+                nss.nss_init_read_write(paths)
+                # try:
+                #     subprocess.call([
+                #         'pk12util',
+                #         '-i',
+                #         cert_file_path,
+                #         '-d',
+                #         path,
+                #         '-W',
+                #         cert_pw
+                #     ])
+                # except Exception as e:
+                #     cse = 'Could not add certificate to certificate store'
+                #     click.echo(cse)
+                #     click.echo(e)
         elif sys.platform == 'darwin':
             try:
                 subprocess.call([

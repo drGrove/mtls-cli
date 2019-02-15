@@ -94,16 +94,16 @@ class MutualTLS:
         certificate = OpenSSL.crypto.X509.from_cryptography(cert)
         p12.set_privatekey(pkey)
         p12.set_certificate(certificate)
-        p12.set_friendlyname(
-            "{org} - {cn}@{host}".format(
-                org=self.config.get(
-                    self.server,
-                    'organization_name'
-                ),
-                cn=self.config.get(self.server, 'common_name'),
-                host=self.config.get(self.server, 'host')
-            )
+        friendly_name = "{org} - {cn}@{host}".format(
+            org=self.config.get(
+                self.server,
+                'organization_name'
+            ),
+            cn=self.config.get(self.server, 'common_name'),
+            host=self.config.get(self.server, 'host')
         )
+        click.echo(friendly_name)
+        p12.set_friendlyname(bytes(friendly_name, 'UTF-8'))
         pwd = self._genPW()
         with open(cert_file_path, 'wb') as f:
             f.write(p12.export(passphrase=bytes(pwd, 'utf-8')))
@@ -114,10 +114,11 @@ class MutualTLS:
             server_folder=self.server_folder,
             server=self.server
         )
+        print(csr_path)
         if not os.path.isfile(csr_path):
             return None
         click.echo('Decrypting CSR...')
-        csr_str = str(self.gpg.decrypt_file(open(csr_path, 'rb')))
+        csr_str = str(self.gpg.decrypt_file(open(csr_path, 'r')))
         return x509.load_pem_x509_csr(bytes(csr_str, 'utf-8'),
                                       default_backend())
 
@@ -186,13 +187,33 @@ class MutualTLS:
                 'This is not currently support on your operating system.'
             )
 
+    def nickname_collision(self, old, cert):
+        val = "{org} - {cn}@{host}".format(
+            org=self.config.get(
+                self.server,
+                'organization_name'
+            ),
+            cn=self.config.get(self.server, 'common_name'),
+            host=config.get(self.server, 'host')
+        )
+        click.echo('SHOW ME THE TYPE')
+        click.echo(type(val))
+        return val
+
     def update_cert_storage(self, cert_file_path, cert_pw, ca_cert_file_path):
         if sys.platform == 'linux' or sys.platform == 'linux2':
             paths = []
             paths += self._certdb_location()
             paths += self._firefox_certdb_locations()
             for path in paths:
-                nss.nss_init_read_write(paths)
+                nss.nss_init_read_write(path)
+                certdb = nss.get_default_certdb()
+                nss.pkcs12_set_nickname_collision_callback(
+                    self.nickname_collision
+                )
+                slot = nss.get_internal_key_slot()
+                with open(cert_file_path, 'rb') as pfx_file:
+                    pfx = nss.PKCS12Decoder(pfx_file, cert_pw, slot)
                 # try:
                 #     subprocess.call([
                 #         'pk12util',
@@ -373,8 +394,8 @@ class MutualTLS:
         csr_fname = '{server}.csr.asc'.format(server=self.server)
         with open(
             '{server_folder}/{filename}'.format(
-                self.server_path,
-                csr_fname
+                server_folder=self.server_folder,
+                filename=csr_fname
             ),
             'wb'
         ) as f:
@@ -403,6 +424,9 @@ class MutualTLS:
                 json=payload,
                 verify=verify
             )
+        except requests.exceptions.ConnectionError:
+            click.echo('Could not connect to server')
+            sys.exit(1)
         except requests.exceptions.SSLError:
             ca_location = self.config.get(self.server, 'ca_location')
             ca_path = self._get_path(ca_location)

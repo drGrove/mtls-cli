@@ -54,6 +54,14 @@ class MutualTLS:
         self.server_in_config()
         self.openssl_format = serialization.PrivateFormat.TraditionalOpenSSL
         self.no_encyption = serialization.NoEncryption()
+        self.friendly_name = "{org} - {cn}@{host}".format(
+            org=self.config.get(
+                self.server,
+                'organization_name'
+            ),
+            cn=self.config.get(self.server, 'common_name'),
+            host=self.config.get(self.server, 'host')
+        )
 
     def run(self):
         csr = self.get_csr()
@@ -77,6 +85,7 @@ class MutualTLS:
         certificate = OpenSSL.crypto.X509.from_cryptography(cert)
         p12.set_privatekey(pkey)
         p12.set_certificate(certificate)
+        p12.set_friendlyname(bytes(self.friendly_name, 'UTF-8'))
         pwd = self._genPW()
         with open(cert_file_path, 'wb') as f:
             f.write(p12.export(passphrase=bytes(pwd, 'utf-8')))

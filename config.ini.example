@@ -10,7 +10,6 @@ common_name=myuser@myhost
 organization=myhost
 
 [myserver.com]
-lifetime=1y # Default to 18h
+lifetime=18 # Default to 18 hours, time must be in hours
 email=johndoe@myserver.com
-url=ca.myserver.com # Location of mtls server
-server_fingerprint=XXXXXX # CA Server PGP Fingerprint
+url=https://ca.myserver.com # Location of mtls server

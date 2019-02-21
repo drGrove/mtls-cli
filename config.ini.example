@@ -13,4 +13,4 @@ organization=myhost
 lifetime=1y # Default to 18h
 email=johndoe@myserver.com
 url=ca.myserver.com # Location of mtls server
-server_fingerprint=XXXXXX # CA Server PGP Fingerprint
+issuer_name=My CA # The name of the root certificate

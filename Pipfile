@@ -12,6 +12,7 @@ requests = "==2.21.0"
 pycodestyle = "==2.4.0"
 click = "==7.0"
 pyOpenSSL = "==19.0.0"
+distro = "==1.4.0"
 
 [requires]
 python_version = "3.7"

@@ -2,6 +2,7 @@
 
 import os
 import random
+import re
 import shutil
 import subprocess
 import sys
@@ -17,6 +18,7 @@ from cryptography.x509.oid import NameOID
 
 import OpenSSL
 import click
+import distro
 import gnupg
 import json
 import requests
@@ -54,16 +56,39 @@ class MutualTLS:
         self.server_in_config()
         self.openssl_format = serialization.PrivateFormat.TraditionalOpenSSL
         self.no_encyption = serialization.NoEncryption()
-        self.friendly_name = "{org} - {cn}@{host}".format(
+        self.friendly_name = "{org} - {cn}".format(
             org=self.config.get(
                 self.server,
                 'organization_name'
             ),
-            cn=self.config.get(self.server, 'common_name'),
-            host=self.config.get(self.server, 'host')
+            cn=self.config.get(self.server, 'common_name')
         )
+        pfx_path = '{base_path}/{server}/{server}.pfx'.format(
+            base_path=self.CONFIG_FOLDER_PATH,
+            server=self.server
+        )
+        self.pfx_path = pfx_path
+        cert_file_path = '{base_path}/{server}/{server}.pem'.format(
+            base_path=self.CONFIG_FOLDER_PATH,
+            server=self.server
+        )
+        self.cert_file_path = cert_file_path
+        ca_cert_file_path = '{base_path}/{server}/{server}_Root_CA.pem'.format(
+            base_path=self.CONFIG_FOLDER_PATH,
+            server=self.server
+        )
+        self.ca_cert_file_path = ca_cert_file_path
 
     def run(self):
+        self._create_db()
+        if not self._has_root_cert():
+            self._get_and_set_root_cert()
+        valid = self.check_valid_cert(name=self.friendly_name)
+        if valid is True:
+            click.echo("Reusing valid certificate")
+            sys.exit(0)
+        else:
+            self.delete_cert_by_name(self.friendly_name)
         csr = self.get_csr()
         key = self.get_key_or_generate()
         if csr is None:
@@ -76,10 +101,6 @@ class MutualTLS:
         if cert is None:
             click.echo('Could not convert to certificate')
             sys.exit(1)
-        pfx_file = '{}.pfx'.format(self.server)
-        cert_file = '{}.pem'.format(self.server)
-        cert_file_path = '{}/{}'.format(self.CONFIG_FOLDER_PATH, pfx_file)
-        ca_cert_file_path = '{}/{}'.format(self.CONFIG_FOLDER_PATH, cert_file)
         p12 = OpenSSL.crypto.PKCS12()
         pkey = OpenSSL.crypto.PKey.from_cryptography_key(key)
         certificate = OpenSSL.crypto.X509.from_cryptography(cert)
@@ -87,9 +108,111 @@ class MutualTLS:
         p12.set_certificate(certificate)
         p12.set_friendlyname(bytes(self.friendly_name, 'UTF-8'))
         pwd = self._genPW()
-        with open(cert_file_path, 'wb') as f:
+        with open(self.cert_file_path, 'wb') as f:
             f.write(p12.export(passphrase=bytes(pwd, 'utf-8')))
-        self.update_cert_storage(cert_file_path, pwd, ca_cert_file_path)
+        self.update_cert_storage(
+            self.cert_file_path,
+            pwd
+        )
+
+    def _has_root_cert(self):
+        if self.check_valid_cert(
+            '{server} Root CA'.format(server=self.server),
+            usage='CT,T,T'
+        ):
+            return True
+        return False
+
+    def _get_and_set_root_cert(self):
+        # We don't verify this request as we assume that the Root CA Cert is
+        # what is backing this server. Since that is the case, SSL validation
+        # will fail since the certificate is not in the store.
+        r = requests.get(
+            '{url}/ca'.format(url=self.config.get(self.server, 'url')),
+            verify=True
+        )
+        # Write the file to the CA Cert File path so that it's accessible to
+        # the user and subsequent calls later.
+        with open(self.ca_cert_file_path, 'w') as ca_cert:
+            ca_cert.write(r.text)
+        self.add_root_ca_to_store(self.ca_cert_file_path)
+
+    def add_root_ca_to_store(self, ca_cert_file_path):
+        paths = self._get_certdb_paths()
+        org = self.config.get(
+            self.server,
+            'organization_name'
+        )
+        for path in paths:
+            cmd = [
+                self._get_base_cert_command(),
+                '-A',
+                '-d',
+                path,
+                '-t',
+                'CT,CT,CT',
+                '-i',
+                ca_cert_file_path,
+                '-n',
+                '{org} Root CA'.format(org=org)
+            ]
+            try:
+                output = self._run_cmd(cmd, capture_output=True)
+            except Exception as e:
+                click.echo("Error")
+                click.echo(e)
+
+    def delete_cert_by_name(self, name):
+        if sys.platform == 'darwin':
+            return None
+        paths = self._get_certdb_paths()
+        for path in paths:
+            cmd = [
+                self._get_base_cert_command(),
+                '-D',
+                '-d',
+                path,
+                '-n',
+                name
+            ]
+
+            try:
+                output = self._run_cmd(cmd, capture_output=True)
+            except Exception as e:
+                click.echo("Error")
+                click.echo(e)
+
+    def check_valid_cert(self, name=None, usage='V'):
+        if name is None:
+            click.echo('A valid certificate name is required')
+            sys.exit(1)
+        if sys.platform == 'darwin':
+            return None
+        paths = self._get_certdb_paths()
+        is_valid = True
+        for path in paths:
+            cmd = [
+                self._get_base_cert_command(),
+                '-V',
+                '-u',
+                usage,
+                '-d',
+                path,
+                '-n',
+                '{name}'.format(name=name)
+            ]
+            output = self._run_cmd(cmd, capture_output=True)
+            if "certificate is invalid" in str(output.stdout, 'UTF-8'):
+                self.delete_cert_by_name(self.friendly_name)
+                is_valid = False
+            if "could not find certificate" in str(output.stderr, 'UTF-8'):
+                is_valid = False
+                return is_valid
+            if "validation failed" in str(output.stderr, 'UTF-8'):
+                is_valid = False
+                return is_valid
+
+        return is_valid
 
     def get_csr(self):
         csr_path = '{}/{}.csr.asc'.format(self.CONFIG_FOLDER_PATH, self.server)
@@ -102,7 +225,7 @@ class MutualTLS:
 
     def _genPW(self):
         chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
-        chars += '01234567890'
+        chars += '1234567890'
         chars += '!@#$%^&*()-_+=|?><,.'
         pw = ""
         for c in range(50):
@@ -110,6 +233,8 @@ class MutualTLS:
         if len(pw) < 50:
             click.echo('Failed to generate appropriate password.')
             sys.exit(1)
+        if re.search('[0-9]+', pw) is None:
+            pw = self._genPW()
         return pw
 
     def convert_to_cert(self, cert):
@@ -123,14 +248,17 @@ class MutualTLS:
         except Exception as e:
             print('Failure to load PEM x509 Certificate: {}'.format(e))
 
-    def update_cert_storage(self, cert_file_path, cert_pw, ca_cert_file_path):
+    def _run_cmd(self, args, capture_output=False):
+        if capture_output:
+            return subprocess.run(args, capture_output=capture_output)
+        return subprocess.call(args)
+
+    def update_cert_storage(self, cert_file_path, cert_pw):
         if sys.platform == 'linux' or sys.platform == 'linux2':
-            paths = [os.path.join(os.getenv('HOME'), '.pki/nssdb')]
-            paths += self._certdb_location()
-            paths += self._firefox_certdb_locations()
+            paths = self._get_certdb_paths()
             for path in paths:
                 try:
-                    subprocess.call([
+                    self._run_cmd([
                         'pk12util',
                         '-i',
                         cert_file_path,
@@ -140,61 +268,62 @@ class MutualTLS:
                         cert_pw,
                         '-n',
                         self.config.get(self.server, 'host')
-                    ])
+                    ], capture_output=True)
                 except Exception as e:
                     cse = 'Could not add certificate to certificate store'
                     click.echo(cse)
                     click.echo(e)
         elif sys.platform == 'darwin':
             try:
-                subprocess.call([
+                self._run_cmd([
                     'security',
                     'add-certificate',
                     cert_file_path
-                ])
-                subprocess.call([
-                    'security',
-                    'add-trusted-cert',
-                    '-p',
-                    'ssl',
-                    cert_file_path
-                ])
+                ], capture_output=True)
             except Exception as e:
                 click.echo(
                     'Could not add certificate to certificate store'
                 )
         else:
             try:
-                subprocess.call([
+                self._run_cmd([
                     'certutil.exe',
                     '-viewstore',
                     '-user',
                     'root'
-                ])
+                ], capture_output=True)
             except Exception as e:
                 click.echo('Could not add certificate to certificate store')
                 click.echo(e)
 
-    def _certdb_location(self):
-        paths = []
+    def _create_db(self):
+        path = self._primary_certdb_location()
         if sys.platform == 'linux' or sys.platform == 'linux2':
-            nssdb_path = os.path.join(os.getenv('HOME'), '.pki/nssdb')
-            if not os.path.isdir(nssdb_path):
-                os.makedirs(nssdb_path)
+            if not os.path.isdir(path):
+                os.makedirs(path)
                 # This assumes that you're using an encrypted hard drive
                 # Othewise we need to look into a way to allow user input
                 # Probably swapping subprocess.call with subprocess.popen so
                 # that users can manually enter passwords
+                click.echo("Making nssdb at {}".format(path))
                 subprocess.call([
                     "certutil",
                     "-d",
-                    nssdb_path,
+                    path,
                     "-N",
                     "--empty-password"
                 ])
+
+    def _get_certdb_paths(self):
+        paths = [
+            self._primary_certdb_location(),
+        ] + self._firefox_certdb_location()
         return paths
 
-    def _firefox_certdb_locations(self):
+    def _primary_certdb_location(self):
+        return os.path.join(os.getenv('HOME'), '.pki/nssdb')
+
+    def _firefox_certdb_location(self):
         base_path = None
         paths = []
         if sys.platform == 'linux' or sys.platform == 'linux2':
@@ -206,7 +335,7 @@ class MutualTLS:
             # Make directory if it doesn't exist
             base_path = os.path.join(
                 os.getenv('HOME'),
-                '/Library/Application Support/Firefox'
+                '/Library/Application\\ Support/Firefox'
             )
         elif sys.platform == 'win32':
             base_path = os.path.join(
@@ -303,6 +432,14 @@ class MutualTLS:
         return key
 
     def generate_csr(self, key):
+        """Generates a CSR.
+
+        Args:
+            key - The users key
+
+        Returns:
+            csr - The CSR
+        """
         country = self.config.get(self.server, 'country')
         state = self.config.get(self.server, 'state')
         locality = self.config.get(self.server, 'locality')
@@ -328,6 +465,7 @@ class MutualTLS:
         return csr
 
     def _get_path(self, path):
+        """Gets the absolute path given a path."""
         if not os.path.isabs(path):
             return os.path.abspath(
                 os.path.join(
@@ -336,34 +474,38 @@ class MutualTLS:
                 )
             )
 
-    def send_request(self, url, payload, verify=True, attempts=0):
-        if attempts == 4:
-            raise TooManyAttemptsError()
-        try:
-            r = requests.post(
-                url,
-                json=payload,
-                verify=verify
-            )
-        except requests.exceptions.SSLError:
-            ca_location = self.config.get(self.server, 'ca_location')
-            ca_path = self._get_path(ca_location)
-            if os.path.isfile(ca_path):
-                verify = ca_path
-            else:
-                verify = False
-                click.echo('Disabling SSL Verification')
-                click.echo('Please get a Certificate from your Root CA')
-            if attempts > 1:
-                verify = False
-            r = self.send_request(
-                url,
-                payload,
-                verify=verify,
-                attempts=(attempts + 1))
-        return r
+    def _get_base_cert_command(self):
+        """Get the base cert command for a given platform."""
+        cmd = None
+        if sys.platform == 'linux' or sys.platform == 'linux2':
+            cmd = 'certutil'
+        elif sys.platform == 'darwin':
+            cmd = 'security'
+        elif sys.platform == 'win32':
+            cmd = 'certutil.exe'
+
+        if cmd is None:
+            click.echo('You do not have a supported operating system')
+            sys.exit(1)
+
+        return cmd
+
+    def send_request(self, url, payload):
+        return requests.post(
+            url,
+            json=payload,
+            verify=True
+        )
 
     def sign_and_send_to_server(self, csr):
+        """Sign and send to server.
+
+        Args:
+            csr - The CSR
+
+        Returns:
+            cert - the certificate
+        """
         csr_public_bytes = csr.public_bytes(serialization.Encoding.PEM)
         click.echo('Signing CSR for verification on server...')
         signature = self.gpg.sign(

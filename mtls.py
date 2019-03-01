@@ -56,41 +56,39 @@ class MutualTLS:
         self.server_in_config()
         self.openssl_format = serialization.PrivateFormat.TraditionalOpenSSL
         self.no_encyption = serialization.NoEncryption()
-        self.friendly_name = "{org} - {cn}@{host}".format(
+        self.friendly_name = "{org} - {cn}".format(
             org=self.config.get(
                 self.server,
                 'organization_name'
             ),
-            cn=self.config.get(self.server, 'common_name'),
-            host=self.config.get(self.server, 'host')
+            cn=self.config.get(self.server, 'common_name')
         )
         pfx_path = '{base_path}/{server}/{server}.pfx'.format(
             base_path=self.CONFIG_FOLDER_PATH,
             server=self.server
         )
         self.pfx_path = pfx_path
-        ca_cert_file_path = '{base_path}/{server}/{server}.ca.pem'.format(
-            base_path=self.CONFIG_FOLDER_PATH,
-            server=self.server
-        )
-        self.ca_cert_path = ca_cert_file_path
         cert_file_path = '{base_path}/{server}/{server}.pem'.format(
             base_path=self.CONFIG_FOLDER_PATH,
             server=self.server
         )
         self.cert_file_path = cert_file_path
+        ca_cert_file_path = '{base_path}/{server}/{server}_Root_CA.pem'.format(
+            base_path=self.CONFIG_FOLDER_PATH,
+            server=self.server
+        )
+        self.ca_cert_file_path = ca_cert_file_path
 
     def run(self):
         self._create_db()
         if not self._has_root_cert():
-            click.echo('Root Certificate is required for validation.')
-            click.echo('Please run `mtls --add-root-cert` for instructions')
-            sys.exit(1)
-
-        valid = self.check_valid_cert()
+            self._get_and_set_root_cert()
+        valid = self.check_valid_cert(name=self.friendly_name)
         if valid is True:
             click.echo("Reusing valid certificate")
             sys.exit(0)
+        else:
+            self.delete_cert_by_name(self.friendly_name)
         csr = self.get_csr()
         key = self.get_key_or_generate()
         if csr is None:
@@ -114,22 +112,60 @@ class MutualTLS:
             f.write(p12.export(passphrase=bytes(pwd, 'utf-8')))
         self.update_cert_storage(
             self.cert_file_path,
-            pwd,
-            self.ca_cert_file_path
+            pwd
         )
 
     def _has_root_cert(self):
         if self.check_valid_cert(
-            name=self.config.get(self.server, 'issuer_name'),
-            usage='TC'
+            '{server} Root CA'.format(server=self.server),
+            usage='CT,T,T'
         ):
             return True
         return False
 
+    def _get_and_set_root_cert(self):
+        # We don't verify this request as we assume that the Root CA Cert is
+        # what is backing this server. Since that is the case, SSL validation
+        # will fail since the certificate is not in the store.
+        r = requests.get(
+            '{url}/ca'.format(url=self.config.get(self.server, 'url')),
+            verify=True
+        )
+        # Write the file to the CA Cert File path so that it's accessible to
+        # the user and subsequent calls later.
+        with open(self.ca_cert_file_path, 'w') as ca_cert:
+            ca_cert.write(r.text)
+        self.add_root_ca_to_store(self.ca_cert_file_path)
+
+    def add_root_ca_to_store(self, ca_cert_file_path):
+        paths = self._get_certdb_paths()
+        org = self.config.get(
+            self.server,
+            'organization_name'
+        )
+        for path in paths:
+            cmd = [
+                self._get_base_cert_command(),
+                '-A',
+                '-d',
+                path,
+                '-t',
+                'CT,CT,CT',
+                '-i',
+                ca_cert_file_path,
+                '-n',
+                '{org} Root CA'.format(org=org)
+            ]
+            try:
+                output = self._run_cmd(cmd, capture_output=True)
+            except Exception as e:
+                click.echo("Error")
+                click.echo(e)
+
     def delete_cert_by_name(self, name):
         if sys.platform == 'darwin':
             return None
-        paths = _get_certdb_paths()
+        paths = self._get_certdb_paths()
         for path in paths:
             cmd = [
                 self._get_base_cert_command(),
@@ -141,12 +177,15 @@ class MutualTLS:
             ]
 
             try:
-                output = self._run_cmd(cmd)
+                output = self._run_cmd(cmd, capture_output=True)
             except Exception as e:
                 click.echo("Error")
                 click.echo(e)
 
-    def check_valid_cert(self, name=self.friendly_name, usage='C'):
+    def check_valid_cert(self, name=None, usage='V'):
+        if name is None:
+            click.echo('A valid certificate name is required')
+            sys.exit(1)
         if sys.platform == 'darwin':
             return None
         paths = self._get_certdb_paths()
@@ -160,13 +199,18 @@ class MutualTLS:
                 '-d',
                 path,
                 '-n',
-                name
+                '{name}'.format(name=name)
             ]
-
             output = self._run_cmd(cmd, capture_output=True)
             if "certificate is invalid" in str(output.stdout, 'UTF-8'):
                 self.delete_cert_by_name(self.friendly_name)
                 is_valid = False
+            if "could not find certificate" in str(output.stderr, 'UTF-8'):
+                is_valid = False
+                return is_valid
+            if "validation failed" in str(output.stderr, 'UTF-8'):
+                is_valid = False
+                return is_valid
 
         return is_valid
 
@@ -224,7 +268,7 @@ class MutualTLS:
                         cert_pw,
                         '-n',
                         self.config.get(self.server, 'host')
-                    ])
+                    ], capture_output=True)
                 except Exception as e:
                     cse = 'Could not add certificate to certificate store'
                     click.echo(cse)
@@ -235,7 +279,7 @@ class MutualTLS:
                     'security',
                     'add-certificate',
                     cert_file_path
-                ])
+                ], capture_output=True)
             except Exception as e:
                 click.echo(
                     'Could not add certificate to certificate store'
@@ -247,7 +291,7 @@ class MutualTLS:
                     '-viewstore',
                     '-user',
                     'root'
-                ])
+                ], capture_output=True)
             except Exception as e:
                 click.echo('Could not add certificate to certificate store')
                 click.echo(e)
@@ -271,10 +315,10 @@ class MutualTLS:
                 ])
 
     def _get_certdb_paths(self):
-        return [
+        paths = [
             self._primary_certdb_location(),
-            self._firefox_certdb_location()
-        ]
+        ] + self._firefox_certdb_location()
+        return paths
 
     def _primary_certdb_location(self):
         return os.path.join(os.getenv('HOME'), '.pki/nssdb')
@@ -310,59 +354,6 @@ class MutualTLS:
         if not value or ctx.resilient_parsing:
             return
         click.echo(NAME + ' ' + VERSION)
-        ctx.exit()
-
-    @staticmethod
-    def add_root_certificate(ctx, param, value):
-        """Adds the servers root certificate to the users trust store."""
-        click.echo("Root certificates need to be manually added.")
-        click.echo("Example commands for your OS will be printed below")
-        click.echo(
-            "NOTE: These will need to be modified to have you Servers Name"
-        )
-        if sys.platform == 'linux' or sys.platform == 'linux2':
-            distribution = distro.linux_distribution(
-                full_distribution_name=False
-            )
-            distro_name = distribution[0]
-            distro_version = distribution[1]
-            click.echo('curl https://serverurl.tld/ca > Server.pem')
-            if distro_name == 'centos':
-                major_number = int(distro_version.split('.')[0])
-                if major_number >= 6:
-                    click.echo('yum install ca-certificate')
-                    click.echo('update-ca-trust force-enable')
-                    click.echo(
-                        'cp Server.pem /etc/pki/ca-trust/source/anchors/'
-                    )
-                    click.echo('update-ca-trust extract')
-                else:
-                    click.echo(
-                        'cat Serer.pem >> /etc/pki/tls/certs/ca-bundle.crt'
-                    )
-            elif distro_name == 'ubuntu' or distro_name == 'debian':
-                cmd = 'sudo cp Server.pem '
-                cmd += '/usr/local/share/ca-certificates/Server.pem'
-                click.echo(cmd)
-                click.echo("sudo update-ca-certificates")
-            elif distro_name == 'arch':
-                click.echo('sudo cp Server.pem ' +
-                           '/usr/local/share/ca-certificates/Server.pem')
-                click.echo('sudo update-ca-trust')
-            else:
-                click.echo('Your distribution is not supported.')
-                sys.exit(1)
-        elif sys.platform == 'darwin':
-            click.echo('curl https://serverurl.tld/ca > Server.pem')
-            click.echo('sudo security add-trusted-cert -d -r trustRoot -k ' +
-                       '/Library/Keychains/System.keychain ~/Server.pem')
-        elif sys.platform == 'win32':
-            click.echo('curl https://serverurl.tld/ca > Server.pem')
-            click.echo('certutil -addstore -f "ROOT" Server.pem')
-        else:
-            click.echo('Your OS is not supported.')
-            sys.exit(1)
-
         ctx.exit()
 
     def check_for_config(self):
@@ -441,6 +432,14 @@ class MutualTLS:
         return key
 
     def generate_csr(self, key):
+        """Generates a CSR.
+
+        Args:
+            key - The users key
+
+        Returns:
+            csr - The CSR
+        """
         country = self.config.get(self.server, 'country')
         state = self.config.get(self.server, 'state')
         locality = self.config.get(self.server, 'locality')
@@ -466,6 +465,7 @@ class MutualTLS:
         return csr
 
     def _get_path(self, path):
+        """Gets the absolute path given a path."""
         if not os.path.isabs(path):
             return os.path.abspath(
                 os.path.join(
@@ -475,6 +475,7 @@ class MutualTLS:
             )
 
     def _get_base_cert_command(self):
+        """Get the base cert command for a given platform."""
         cmd = None
         if sys.platform == 'linux' or sys.platform == 'linux2':
             cmd = 'certutil'
@@ -489,34 +490,22 @@ class MutualTLS:
 
         return cmd
 
-    def send_request(self, url, payload, verify=True, attempts=0):
-        if attempts == 4:
-            raise TooManyAttemptsError()
-        try:
-            r = requests.post(
-                url,
-                json=payload,
-                verify=verify
-            )
-        except requests.exceptions.SSLError:
-            ca_location = self.config.get(self.server, 'ca_location')
-            ca_path = self._get_path(ca_location)
-            if os.path.isfile(ca_path):
-                verify = ca_path
-            else:
-                verify = False
-                click.echo('Disabling SSL Verification')
-                click.echo('Please get a Certificate from your Root CA')
-            if attempts > 1:
-                verify = False
-            r = self.send_request(
-                url,
-                payload,
-                verify=verify,
-                attempts=(attempts + 1))
-        return r
+    def send_request(self, url, payload):
+        return requests.post(
+            url,
+            json=payload,
+            verify=True
+        )
 
     def sign_and_send_to_server(self, csr):
+        """Sign and send to server.
+
+        Args:
+            csr - The CSR
+
+        Returns:
+            cert - the certificate
+        """
         csr_public_bytes = csr.public_bytes(serialization.Encoding.PEM)
         click.echo('Signing CSR for verification on server...')
         signature = self.gpg.sign(
@@ -545,9 +534,6 @@ class MutualTLS:
 @click.option('--server', '-s')
 @click.option('--version', '-v',
               is_flag=True, callback=MutualTLS.print_version,
-              expose_value=False, is_eager=True)
-@click.option('--add-root-cert',
-              is_flag=True, callback=MutualTLS.add_root_certificate,
               expose_value=False, is_eager=True)
 def main(server=None):
     mtls = MutualTLS(server)

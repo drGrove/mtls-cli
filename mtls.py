@@ -79,10 +79,10 @@ class MutualTLS:
             server=self.server
         )
         self.ca_cert_file_path = '{base_path}/{server}/{server}_Root_CA.pem'\
-        .format(
-            base_path=self.CONFIG_FOLDER_PATH,
-            server=self.server
-        )
+            .format(
+                base_path=self.CONFIG_FOLDER_PATH,
+                server=self.server
+            )
 
     def run(self):
         self._create_db()

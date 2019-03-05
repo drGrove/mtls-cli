@@ -1,15 +1,17 @@
 [DEFAULT]
 name=John Doe
 email=johndoe@example.com
-host=myhost
-fingerprint=XXXXXXXX # PGP Fingerprint
+; PGP Fingerprint
+fingerprint=XXXXXXXX
 country=US
 state=CA
 locality=Mountain View
-common_name=myuser@myhost
 organization=myhost
 
 [myserver.com]
-lifetime=18 # Default to 18 hours, time must be in hours
+; Default to 18 hours, time must be in seconds (64800)
+; the below example is for 1 hour
+lifetime=3600
 email=johndoe@myserver.com
-url=https://ca.myserver.com # Location of mtls server
+; Location of mtls server
+url=https://ca.myserver.com

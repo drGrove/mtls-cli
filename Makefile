@@ -22,6 +22,10 @@ lint:
 build:
 	@$(PIP_ENV)/bin/pyinstaller --onefile mtls.spec
 
+install-bin:
+	@mkdir -p ~/.local/bin
+	@cp ./dist/mtls ~/.local/bin/
+
 run:
 	@$(PIP_ENV)/bin/python mtls.py -s $(SERVER)
 

@@ -13,3 +13,26 @@ matrix:
           dist: xenial
         - os: osx
           python: 3.7
+
+addons:
+  apt:
+    sources:
+      - sourceline: "ppa:duggan/bats"
+    packages:
+      - bats
+      - make
+      - pipenv
+      - gnupg
+  homebrew:
+    update: true
+    packages:
+      - bats-core
+      - make
+      - pipenv
+      - gnupg
+
+script:
+  - make setup
+  - make build
+  - make install-bin
+  - bats test

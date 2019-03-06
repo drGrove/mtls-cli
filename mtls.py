@@ -79,10 +79,10 @@ class MutualTLS:
             server=self.server
         )
         self.ca_cert_file_path = '{base_path}/{server}/{server}_Root_CA.pem'\
-        .format(
-            base_path=self.CONFIG_FOLDER_PATH,
-            server=self.server
-        )
+            .format(
+                base_path=self.CONFIG_FOLDER_PATH,
+                server=self.server
+            )
 
     def run(self):
         self._create_db()
@@ -178,10 +178,6 @@ class MutualTLS:
     def add_root_ca_to_store(self, ca_cert_file_path):
         click.echo('Adding root certificate to certificate store...')
         paths = self._get_certdb_paths()
-        org = self.config.get(
-            self.server,
-            'organization_name'
-        )
         if sys.platform == 'darwin':
             cmds = []
             add_trust_keychain = [
@@ -220,7 +216,7 @@ class MutualTLS:
                     '-i',
                     ca_cert_file_path,
                     '-n',
-                    '{org} Root CA'.format(org=org)
+                    '{server} Root CA'.format(server=self.server)
                 ]
                 try:
                     output = self._run_cmd(cmd, capture_output=True)
@@ -352,11 +348,8 @@ class MutualTLS:
                     is_valid = False
                 if "could not find certificate" in str(output.stderr, 'UTF-8'):
                     is_valid = False
-                    return is_valid
                 if "validation failed" in str(output.stderr, 'UTF-8'):
                     is_valid = False
-                    return is_valid
-
         return is_valid
 
     def get_csr(self):
@@ -421,7 +414,7 @@ class MutualTLS:
                         '-W',
                         cert_pw,
                         '-n',
-                        self.config.get(self.server, 'hostname')
+                        str(platform.uname()[1])
                     ], capture_output=True)
                 except Exception as e:
                     cse = 'Could not add certificate to certificate store'
@@ -456,7 +449,7 @@ class MutualTLS:
                         '-W',
                         cert_pw,
                         '-n',
-                        self.config.get(self.server, 'hostname')
+                        str(platform.uname()[1])
                     ]
                     self._run_cmd(cmd, capture_output=True)
             except Exception as e:
@@ -726,7 +719,6 @@ class MutualTLS:
                 'lifetime',
                 fallback=64800
             ),
-            'host': self.config.get(self.server, 'hostname'),
             'type': 'CREATE_CERTIFICATE'
         }
         server_url = self.config.get(self.server, 'url')

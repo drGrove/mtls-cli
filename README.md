@@ -1,4 +1,6 @@
-# Mutual TLS Client (mtls)#
+# Mutual TLS Client (mtls) #
+
+[![Known Vulnerabilities](https://snyk.io/test/github/drGrove/mtls-client/badge.svg)](https://snyk.io/test/github/drGrove/mtls-client)
 
 ## Overview ##
 

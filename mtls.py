@@ -25,7 +25,7 @@ import json
 import requests
 
 __author__ = 'Danny Grove <danny@drgrovell.com>'
-VERSION = 'version 0.1'
+VERSION = 'version 0.6'
 NAME = 'mtls - Mutual TLS'
 
 

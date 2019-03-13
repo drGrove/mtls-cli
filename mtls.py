@@ -719,7 +719,7 @@ class MutualTLS:
                 'lifetime',
                 fallback=64800
             ),
-            'type': 'CREATE_CERTIFICATE'
+            'type': 'CERTIFICATE'
         }
         server_url = self.config.get(self.server, 'url')
         response = self.send_request(server_url, payload)

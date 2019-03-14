@@ -82,3 +82,6 @@ To build a binary:
 ```
 shell make build
 ```
+
+NOTE: This will output to an mtls folder within the root of the project. This folder has been gitignored and only
+artifacts of the build belong in this directory

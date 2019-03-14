@@ -1,0 +1,12 @@
+[run]
+branch = True
+include = ./*.py
+omit =
+    # Omit Tests
+    ./test/*
+    # Omit pycache
+    __pycache__
+    # omit anything in a .local directory anywhere
+    */.local/*
+    # omit everything in /usr
+    /usr/*

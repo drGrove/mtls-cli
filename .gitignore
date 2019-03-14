@@ -1,5 +1,7 @@
 env
 *.pyc
-dist
+mtls
 build
 *.swp
+.coverage
+__pycache__

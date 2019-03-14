@@ -24,38 +24,49 @@ import gnupg
 import json
 import requests
 
-__author__ = 'Danny Grove <danny@drgrovell.com>'
-VERSION = 'version 0.6'
-NAME = 'mtls - Mutual TLS'
-
 
 class MutualTLS:
     MISSING_CONFIGURATION = """
     Configuration missing for mtls at {}/{}
     """
     MISSING_CONFIGURATION_FOR_SERVER = """
-    Configuration missing for {server}:
+    Configuration missing for server: {server}
 
     Please ensure that you have a configuration for you server similar to:
     [{server}]
     email=foo@example.com
-    url=ca.example.com
+    url=https://ca.example.com
 
     For more details see config.ini.example
     """
-    CONFIG_FOLDER_PATH = '{}/.config/mtls'.format(os.getenv('HOME'))
-    CONFIG_FILE = 'config.ini'
-    USER_KEY = '{}.key.gpg'.format(os.getenv('USER'))
-    GNUPGHOME = os.getenv('GNUPGHOME', '{}/{}'.format(os.getenv('HOME'),
-                                                      '.gnupg'))
 
-    def __init__(self, server):
+    def __init__(self, server, options={}):
+        self.HOME = os.environ.get('HOME')
+        self.GNUPGHOME = os.environ.get('GNUPGHOME')
+        self.USER = os.environ.get('USER')
+        self.options = options
+        if options['config'] is None:
+            self.CONFIG_FOLDER_PATH = '{}/.config/mtls'.format(self.HOME)
+            self.CONFIG_FILE = 'config.ini'
+            self.config_file_path = '{config_path}/{config_file}'.format(
+                config_path=self.CONFIG_FOLDER_PATH,
+                config_file=self.CONFIG_FILE
+            )
+        else:
+            self.CONFIG_FOLDER_PATH = "/".join(
+                options['config'].split('/')[:-1]
+            )
+            self.CONFIG_FILE = options['config'].split('/')[-1]
+            self.config_file_path = options['config']
+        self.USER_KEY = '{}.key.gpg'.format(self.USER)
+        self.GNUPGHOME = os.environ.get('GNUPGHOME')
+        if self.GNUPGHOME is None:
+            self.GNUPGHOME = '{}/{}'.format(
+                os.environ.get('HOME'),
+                '.gnupg'
+            )
         self.gpg = gnupg.GPG(gnupghome=self.GNUPGHOME)
         self.gpg.encoding = 'utf-8'
-        self.config_file_path = '{config_path}/{config_file}'.format(
-            config_path=self.CONFIG_FOLDER_PATH,
-            config_file=self.CONFIG_FILE
-        )
         self.config = self.get_config()
         self.server = server
         self._make_server_dir_if_missing()
@@ -67,7 +78,7 @@ class MutualTLS:
                 self.server,
                 'organization_name'
             ),
-            user=str(os.getenv('USER')),
+            user=str(os.environ.get('USER')),
             hostname=str(platform.uname()[1])
         )
         self.pfx_path = '{base_path}/{server}/{server}.pfx'.format(
@@ -83,37 +94,64 @@ class MutualTLS:
                 base_path=self.CONFIG_FOLDER_PATH,
                 server=self.server
             )
+        self.crl_file_path = '{base_path}/{server}/crl.pem'.format(
+                base_path=self.CONFIG_FOLDER_PATH,
+                server=self.server
+            )
 
-    def run(self):
+    def check_revoked(self, cert):
+        with open(self.crl_file_path, 'rb') as f:
+            crl = x509.load_pem_x509_crl(
+                data=f.read(),
+                backend=default_backend()
+            )
+            if cert.issuer != crl.issuer:
+                click.secho('Cert does not match CRL', fg='red')
+                sys.exit(1)
+            for revoked in crl:
+                if cert.serial == revoked.serial_number:
+                    return True
+
+            return False
+
+    def create_cert(self):
         self._create_db()
+        cert = None
         if not self._has_root_cert():
             self._get_and_set_root_cert()
         if sys.platform == 'darwin':
-            valid = self.check_valid_cert(name=self.cert_file_path)
+            (valid,
+             exists,
+             revoked) = self.check_valid_cert(name=self.cert_file_path)
         else:
-            valid = self.check_valid_cert(name=self.friendly_name)
+            (valid,
+             exists,
+             revoked) = self.check_valid_cert(name=self.friendly_name)
         if valid is True:
             click.echo("Reusing valid certificate")
             sys.exit(0)
-        else:
+        if valid is False and exists is True and revoked is True:
             self.delete_cert_by_name(self.friendly_name)
+        if valid is False and revoked is False and exists is True:
+            cert = self.get_cert_from_file()
         csr = self.get_csr()
         key = self.get_key_or_generate()
         if csr is None:
             csr = self.generate_csr(key)
         else:
-            click.echo(click.style(
+            click.secho(
                 'Reusing previously generated CSR for {server}'.format(
                     server=self.server
                 ),
                 fg='green'
-            ))
+            )
         cert_str = self.sign_and_send_to_server(csr)
         if cert_str is None:
             click.echo('Could not retrieve certificate from server')
             sys.exit(1)
         cert = self.convert_to_cert(cert_str)
         with open(self.cert_file_path, 'w') as cert_file:
+            logger.info('Writing file to {}'.format(self.cert_file_path))
             cert_file.write(
                 cert.public_bytes(serialization.Encoding.PEM).decode('utf-8')
             )
@@ -133,14 +171,22 @@ class MutualTLS:
             self.pfx_path,
             pwd
         )
+        self._chrome_notice()
         self._firefox_notice()
 
-    def _firefox_notice(self):
-        click.echo(click.style(
-            'Certificates added. If using Firefox you may have to restart ' +
-            'before these certificates take effect',
+    def _chrome_notice(self):
+        click.secho(
+            'If using Chrome/Chromium you may have to ' +
+            'restart before these certificates take effect. chrome://restart',
             fg='green'
-        ))
+        )
+
+    def _firefox_notice(self):
+        click.secho(
+            'If using Firefox you may have to restart ' +
+            'before these certificates take effect. about://profiles',
+            fg='green'
+        )
 
     def _has_root_cert(self):
         if sys.platform == 'darwin':
@@ -156,16 +202,20 @@ class MutualTLS:
         return False
 
     def _get_and_set_root_cert(self):
-        # We don't verify this request as we assume that the Root CA Cert is
-        # what is backing this server. Since that is the case, SSL validation
-        # will fail since the certificate is not in the store.
-        r = requests.get(
-            '{url}/ca'.format(
+        response = self.send_request(
+            server_url='{url}/ca'.format(
                 url=self.config.get(self.server, 'url')
             ),
-            verify=True
+            method='get'
         )
-        data = r.json()
+        try:
+            data = response.json()
+        except Exception:
+            click.secho(
+                'Error parsing Root Certificate from server.',
+                fg='red'
+            )
+            sys.exit(1)
         # Update the issuer name directly from the server into your config
         self.config.set(self.server, 'issuer', data['issuer'])
         self.update_config()
@@ -226,10 +276,10 @@ class MutualTLS:
 
     def delete_cert_by_name(self, name):
         paths = self._get_certdb_paths()
-        click.echo(click.style(
+        click.secho(
             'Deleting invalid/expired certificates for {}'.format(name),
-            fg='red'
-        ))
+            fg='yellow'
+        )
         if sys.platform == 'darwin':
             delete_identity_cmd = [
                 'security',
@@ -254,7 +304,11 @@ class MutualTLS:
                 try:
                     output = self._run_cmd(cmd, capture_output=True)
                 except Exception as e:
-                    click.echo("Error")
+                    click.echo(
+                        "Error deleting certificate with name: {}".format(
+                            name
+                        )
+                    )
                     click.echo(e)
 
     def check_valid_cert(self, name=None, usage='V', is_root=False):
@@ -262,7 +316,11 @@ class MutualTLS:
             click.echo('A valid certificate name is required')
             sys.exit(1)
         paths = self._get_certdb_paths()
-        is_valid = True
+        is_valid = False
+        revoked = False
+        cert_exists = os.path.isfile(self.cert_file_path)
+        if not cert_exists:
+            return is_valid, cert_exists, revoked
         if self.config.get(self.server, 'issuer', fallback=None) is None:
             # If the config doesn't have an issuer, we can by default know that
             # a user has not received this information from the server or set
@@ -276,9 +334,6 @@ class MutualTLS:
             # b) is it actually valid
             # We are only checking Keychain as we cannot verify that Firefox is
             # actually installed and we should not be making that assumption.
-            cert_exists = os.path.isfile(self.cert_file_path)
-            if not cert_exists:
-                return False
             if is_root:
                 cmd = [
                     'security',
@@ -291,7 +346,7 @@ class MutualTLS:
                     find_cert_output.stderr,
                     'UTF-8'
                 ):
-                    return False
+                    return is_valid, cert_exists, revoked
                 cmd = [
                     'security',
                     'verify-cert',
@@ -310,12 +365,12 @@ class MutualTLS:
                     find_cert_output.stdout,
                     'UTF-8'
                 ):
-                    return False
+                    return is_valid, cert_exists, revoked
                 if "The specified item could not be found" in str(
                     find_cert_output.stderr,
                     'UTF-8'
                 ):
-                    return False
+                    return is_valid, cert_exists, revoked
                 cmd = [
                     'security',
                     'verify-cert',
@@ -343,14 +398,24 @@ class MutualTLS:
                     '{name}'.format(name=name)
                 ]
                 output = self._run_cmd(cmd, capture_output=True)
-                if "certificate is invalid" in str(output.stdout, 'UTF-8'):
-                    self.delete_cert_by_name(self.friendly_name)
-                    is_valid = False
                 if "could not find certificate" in str(output.stderr, 'UTF-8'):
+                    # No certificate found so it's not valid, exists or revoked
                     is_valid = False
+                    revoked = False
+                if "certificate is invalid" in str(output.stdout, 'UTF-8'):
+                    is_valid = False
+                    revoked = self.check_revoked(self.get_cert_from_file())
                 if "validation failed" in str(output.stderr, 'UTF-8'):
                     is_valid = False
-        return is_valid
+                    revoked = self.check_revoked(self.get_cert_from_file())
+        return is_valid, cert_exists, revoked
+
+    def get_cert_from_file(self):
+        with open(self.cert_file_path, 'rb') as cert_file:
+            return x509.load_pem_x509_certificate(
+                cert_file.read(),
+                default_backend()
+            )
 
     def get_csr(self):
         csr_path = '{}/{}.csr.asc'.format(self.CONFIG_FOLDER_PATH, self.server)
@@ -369,12 +434,11 @@ class MutualTLS:
         for c in range(50):
             pw += random.choice(chars)
         if len(pw) < 50:
-            click.echo(
-                click.style(
-                    'Failed to generate appropriate password.',
-                    fg='red',
-                    bold=True
-                )
+            click.secho(
+                'Failed to generate appropriate password.',
+                fg='red',
+                bold=True,
+                err=True
             )
             sys.exit(1)
         if re.search('[0-9]+', pw) is None:
@@ -390,11 +454,10 @@ class MutualTLS:
             )
             return cert
         except Exception as e:
-            click.echo(
-                click.style(
-                    'Failure to load PEM x509 Certificate: {}'.format(e),
-                    fg='red'
-                )
+            click.secho(
+                'Failure to load PEM x509 Certificate: {}'.format(e),
+                fg='red',
+                err=True
             )
 
     def _run_cmd(self, args, capture_output=False):
@@ -405,7 +468,7 @@ class MutualTLS:
             paths = self._get_certdb_paths()
             for path in paths:
                 try:
-                    self._run_cmd([
+                    cmd = [
                         'pk12util',
                         '-i',
                         cert_file_path,
@@ -415,10 +478,18 @@ class MutualTLS:
                         cert_pw,
                         '-n',
                         str(platform.uname()[1])
-                    ], capture_output=True)
+                    ]
+                    output = self._run_cmd(cmd, capture_output=True)
+                    if (
+                        "SEC_ERROR_REUSED_ISSUER_AND_SERIAL" in
+                        str(output.stderr, 'UTF-8')
+                    ):
+                        self.delete_cert_by_name(self.friendly_name)
+                        self.update_cert_storage(cert_file_path, cert_pw)
+                        return
                 except Exception as e:
                     cse = 'Could not add certificate to certificate store'
-                    click.echo(click.style(cse, fg='red'))
+                    click.secho(cse, fg='red', err=True)
                     click.echo(e)
         elif sys.platform == 'darwin':
             try:
@@ -453,11 +524,10 @@ class MutualTLS:
                     ]
                     self._run_cmd(cmd, capture_output=True)
             except Exception as e:
-                click.echo(
-                    click.style(
-                        'Could not add certificate to certificate store',
-                        fg='red'
-                    )
+                click.secho(
+                    'Could not add certificate to certificate store',
+                    fg='red',
+                    err=True
                 )
                 click.echo(e)
         else:
@@ -489,11 +559,9 @@ class MutualTLS:
                 # Othewise we need to look into a way to allow user input
                 # Probably swapping subprocess.call with subprocess.popen so
                 # that users can manually enter passwords
-                click.echo(
-                    click.style(
-                        "Making nssdb at {}".format(path),
-                        fg='green'
-                    )
+                click.secho(
+                    "Making nssdb at {}".format(path),
+                    fg='green'
                 )
                 subprocess.call([
                     "certutil",
@@ -510,20 +578,20 @@ class MutualTLS:
         return paths
 
     def _primary_certdb_location(self):
-        return os.path.join(os.getenv('HOME'), '.pki/nssdb')
+        return os.path.join(self.HOME, '.pki/nssdb')
 
     def _firefox_certdb_location(self):
         base_path = None
         paths = []
         if sys.platform == 'linux' or sys.platform == 'linux2':
             base_path = os.path.join(
-                os.getenv('HOME'),
+                self.HOME,
                 '.mozilla/firefox'
             )
         elif sys.platform == 'darwin':
             # Make directory if it doesn't exist
             base_path = os.path.join(
-                os.getenv('HOME'),
+                self.HOME,
                 'Library/Application Support/Firefox/Profiles/'
             )
         elif sys.platform == 'win32':
@@ -536,14 +604,6 @@ class MutualTLS:
             for pp in posix_paths:
                 paths.append('/'.join(str(pp).split('/')[:-1]))
         return paths
-
-    @staticmethod
-    def print_version(ctx, param, value):
-        """Prints the version of the application."""
-        if not value or ctx.resilient_parsing:
-            return
-        click.echo(NAME + ' ' + VERSION)
-        ctx.exit()
 
     def check_for_config(self):
         """Check if the config exists, otherwise exit."""
@@ -570,13 +630,11 @@ class MutualTLS:
         return config
 
     def update_config(self):
-        click.echo(
-            click.style(
-                'Updating config file settings for {server}'.format(
-                    server=self.server
-                ),
-                fg='green'
-            )
+        click.secho(
+            'Updating config file settings for {server}'.format(
+                server=self.server
+            ),
+            fg='green'
         )
         with open(self.config_file_path, 'w') as config_file:
             self.config.write(config_file)
@@ -587,7 +645,9 @@ class MutualTLS:
             click.echo('You have multiple servers configured, please ' +
                        'selection one with the --server (-s) option')
         if self.server not in self.config:
-            click.echo(self.MISSING_CONFIGURATION_FOR_SERVER)
+            click.echo(self.MISSING_CONFIGURATION_FOR_SERVER.format(
+               server=self.server
+            ))
             sys.exit(1)
 
     def encrypt(self, data, recipient, sign=False):
@@ -603,9 +663,10 @@ class MutualTLS:
             key - RSA Key
         """
         key = None
-        config_folder = self.CONFIG_FOLDER_PATH
-        user_key = self.USER_KEY
-        key_path = f'{config_folder}/{user_key}'
+        key_path = '{config_folder}/{user_key}'.format(
+            config_folder=self.CONFIG_FOLDER_PATH,
+            user_key=self.USER_KEY
+        )
         if os.path.isfile(key_path):
             click.echo('Decrypting User Key...')
             encrypted_key_file = open(key_path, 'rb')
@@ -642,11 +703,9 @@ class MutualTLS:
         Returns:
             csr - The CSR
         """
-        click.echo(
-            click.style(
-                'Generating CSR for {server}'.format(server=self.server),
-                fg='yellow'
-            )
+        click.secho(
+            'Generating CSR for {server}'.format(server=self.server),
+            fg='yellow'
         )
         country = self.config.get(self.server, 'country')
         state = self.config.get(self.server, 'state')
@@ -687,12 +746,56 @@ class MutualTLS:
                 )
             )
 
-    def send_request(self, url, payload):
-        return requests.post(
-            url,
-            json=payload,
-            verify=True
-        )
+    def send_request(self, payload=None, method='post', server_url=None):
+        if server_url is None:
+            server_url = self.config.get(self.server, 'url')
+        if method == 'post':
+            if payload is None:
+                click.secho(
+                    'Payload missing for request. Cancelling',
+                    fg='red',
+                    err=True
+                )
+            return requests.post(
+                server_url,
+                json=payload,
+                verify=True
+            )
+        if method == 'delete':
+            if payload is None:
+                click.secho(
+                    'Payload missing for request. Cancelling',
+                    fg='red',
+                    err=True
+                )
+            return requests.delete(
+                server_url,
+                json=payload,
+                verify=True
+            )
+        if method == 'get':
+            return requests.get(server_url, verify=True)
+        click.secho('Failed to properly send request to server, ' +
+                    'invalid method passed to MutualTLS.send_request')
+        sys.exit(1)
+
+    def gen_sig(self, data, echo_msg):
+        click.echo(echo_msg)
+        if self.options['gpg_password']:
+            return self.gpg.sign(
+                data,
+                keyid=self.config.get(self.server, 'fingerprint'),
+                passphrase=self.options['gpg_password'],
+                detach=True,
+                clearsign=True
+            )
+        else:
+            return self.gpg.sign(
+                data,
+                keyid=self.config.get(self.server, 'fingerprint'),
+                detach=True,
+                clearsign=True
+            )
 
     def sign_and_send_to_server(self, csr):
         """Sign and send to server.
@@ -704,13 +807,8 @@ class MutualTLS:
             cert - the certificate
         """
         csr_public_bytes = csr.public_bytes(serialization.Encoding.PEM)
-        click.echo('Signing CSR for verification on server...')
-        signature = self.gpg.sign(
-            csr_public_bytes,
-            keyid=self.config.get(self.server, 'fingerprint'),
-            detach=True,
-            clearsign=True
-        )
+        msg = 'Signing CSR for verification on server...'
+        signature = self.gen_sig(csr_public_bytes, msg)
         payload = {
             'csr': csr_public_bytes.decode('utf-8'),
             'signature': str(signature),
@@ -721,32 +819,106 @@ class MutualTLS:
             ),
             'type': 'CERTIFICATE'
         }
-        server_url = self.config.get(self.server, 'url')
-        response = self.send_request(server_url, payload)
+        response = self.send_request(payload)
         response = response.json()
         if response.get('error', False):
             click.echo(response.get('msg'))
             sys.exit(1)
         return str(response['cert'])
 
-
-@click.command()
-@click.option('--server', '-s')
-@click.option('--version', '-v',
-              is_flag=True, callback=MutualTLS.print_version,
-              expose_value=False, is_eager=True)
-def main(server=None):
-    if server is None:
-        click.echo('A server must be specified.')
-        sys.exit(1)
-    if sys.platform == 'win32' or sys.platform == 'cygwin':
-        click.echo(click.style(
-            'Your platform is not currently supported',
-            fg='red'
+    def revoke_cert(self, fingerprint, serial_number, common_name):
+        payload = {
+            'query': {},
+            'type': 'CERTIFICATE'
+        }
+        if fingerprint is not None:
+            payload['query']['fingerprint'] = fingerprint
+        if serial_number is not None:
+            payload['query']['serial_number'] = serial_number
+        if common_name is not None:
+            payload['query']['common_name'] = common_name
+        msg = 'Signing Revoke Request...'
+        payload['signature'] = str(self.gen_sig(
+            json.dumps(payload['query']).encode('UTF-8'),
+            msg
         ))
-    mtls = MutualTLS(server)
-    mtls.run()
+        response = self.send_request(payload, method='delete')
+        response = response.json()
+        if response.get('error', False):
+            click.echo(response.get('msg'))
+            sys.exit(1)
+        click.echo('Certificate Revoked')
 
+    def add_user(self, fingerprint, is_admin=False):
+        msg = 'Signing Add User Request...'
+        payload = {
+            'type': 'ADMIN' if is_admin else 'USER',
+            'fingerprint': fingerprint,
+            'signature': str(self.gen_sig(
+                fingerprint.encode('UTF-8'),
+                msg
+            ))
+        }
+        response = self.send_request(payload, method='post')
+        response = response.json()
+        if response.get('error', False):
+            click.echo(response.get('msg'))
+            sys.exit(1)
+        if is_admin:
+            _type = 'Admin'
+        else:
+            _type = 'User'
+        click.secho(
+            'Added {_type}: {fingerprint}'.format(
+                fingerprint=fingerprint,
+                _type=_type
+            ),
+            fg='green'
+        )
 
-if __name__ == '__main__':
-    main()
+    def remove_user(self, fingerprint, is_admin=False):
+        msg = 'Signing Remove User Request...'
+        payload = {
+            'type': 'ADMIN' if is_admin else 'USER',
+            'fingerprint': fingerprint,
+            'signature': str(self.gen_sig(
+                fingerprint.encode('UTF-8'),
+                msg
+            ))
+        }
+        response = self.send_request(payload, method='post')
+        response = response.json()
+        if response.get('error', False):
+            click.echo(response.get('msg'))
+            sys.exit(1)
+        if is_admin:
+            _type = 'Admin'
+        else:
+            _type = 'User'
+        click.secho(
+            'Removed {_type}: {fingerprint}'.format(
+                fingerprint=fingerprint,
+                _type=_type
+            ),
+            fg='green'
+        )
+
+    def get_crl(self, output):
+        if not output:
+            click.echo('Retrieving CRL from server...')
+        response = self.send_request(
+            server_url=self.config.get(self.server, 'url') + '/crl',
+            method='get'
+        )
+        if response.status_code != 200:
+            click.secho(
+                'Failed to retrieve CRL from {}'.format(self.server),
+                fg='red',
+                err=True
+            )
+        if output:
+            click.echo(response.text)
+        else:
+            click.echo('Writing CRL to {}'.format(self.crl_file_path))
+            with open(self.crl_file_path, 'wb') as crl_file:
+                crl_file.write(bytes(response.text, 'UTF-8'))

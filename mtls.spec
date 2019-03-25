@@ -2,10 +2,13 @@
 
 block_cipher = None
 
+import PyInstaller.config
+PyInstaller.config.CONF['distpath'] = "./mtls"
 
-a = Analysis(['mtls.py'],
+a = Analysis(['cli.py', 'mtls.py'],
              pathex=[
                 './env/lib/python3.7/site-packages',
+                '.'
              ],
              binaries=[],
              datas=[],

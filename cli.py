@@ -43,9 +43,18 @@ def cli(ctx, server, config, gpg_password):
         )
 
 
-@cli.command('create-certificate')
+@click.group(help='Manage Certificates')
 @click.pass_context
-def create_cert(ctx):
+def certificate(ctx):
+    pass
+
+
+@certificate.command(
+    'create',
+    help='Create a Client Certificate for a given server.'
+)
+@click.pass_context
+def create_certificate(ctx):
     if ctx.obj is None:
         click.secho('A server was not provided.', fg='red')
         sys.exit(1)
@@ -53,7 +62,10 @@ def create_cert(ctx):
     ctx.obj.create_cert()
 
 
-@cli.command('revoke-certificate')
+@certificate.command(
+    'revoke',
+    help='Revoke a certificate for a given server.'
+)
 @click.option(
     '--fingerprint',
     '-f',
@@ -72,13 +84,37 @@ def create_cert(ctx):
     help='The common name on the certificate.'
 )
 @click.pass_context
-def revoke_cert(ctx, fingerprint, serial_number, name):
+def revoke_certificate(ctx, fingerprint, serial_number, name):
     if ctx.obj is None:
         click.secho('A server was not provided.', fg='red')
         sys.exit(1)
     ctx.obj.revoke_cert(fingerprint, serial_number, name)
 
-@cli.command()
+
+@certificate.command('crl', help='Get the CRL for a given server')
+@click.option(
+    '--output/--no-output',
+    '-o/-no',
+    is_flag=True,
+    default=True,
+    help='Output to stdout. Otherwise this will write to ' +
+         '~/.config/mtls/<server>/crl.pem'
+)
+@click.pass_context
+def get_crl(ctx, output):
+    if ctx.obj is None:
+        click.secho('A server was not provided.', fg='red')
+        sys.exit(1)
+    ctx.obj.get_crl(output)
+
+
+@click.group(help='Manage Users')
+@click.pass_context
+def user(ctx):
+    pass
+
+
+@user.command('add', help='Add a user (Admin Required).')
 @click.option(
     '--admin',
     is_flag=True,
@@ -116,7 +152,7 @@ def add_user(ctx, admin, fingerprint, email, keyserver):
     ctx.obj.add_user(fingerprint, admin)
 
 
-@cli.command()
+@user.command('remove', help='Remove a user (Admin Required).')
 @click.option(
     '--admin',
     is_flag=True,
@@ -155,21 +191,8 @@ def remove_user(ctx, admin, fingerprint, email, keyserver):
     ctx.obj.remove_user(fingerprint, admin)
 
 
-@cli.command()
-@click.option(
-    '--output/--no-output',
-    '-o/-no',
-    is_flag=True,
-    default=True,
-    help='Output to stdout. Otherwise this will write to ' +
-         '~/.config/mtls/<server>/crl.pem'
-)
-@click.pass_context
-def get_crl(ctx, output):
-    if ctx.obj is None:
-        click.secho('A server was not provided.', fg='red')
-        sys.exit(1)
-    ctx.obj.get_crl(output)
+cli.add_command(certificate)
+cli.add_command(user)
 
 
 def handle_email(ctx, email, keyserver=None):

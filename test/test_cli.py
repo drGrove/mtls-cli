@@ -141,7 +141,10 @@ class TestCliBase(unittest.TestCase):
         cls.ADMIN_GNUPGHOME = tempfile.TemporaryDirectory(
             prefix=TMPDIR_PREFIX
         )
-        cls.admin_gpg = gnupg.GPG(gnupghome=cls.ADMIN_GNUPGHOME.name)
+        cls.admin_gpg = gnupg.GPG(
+            gnupghome=cls.ADMIN_GNUPGHOME.name,
+            verbose=True
+        )
         cls.admin = User(
             'test@example.com',
             gen_passwd(),
@@ -155,7 +158,10 @@ class TestCliBase(unittest.TestCase):
         with open(file_path, 'w') as f:
             f.write(cls.admin_gpg.export_keys(cls.admin.pgp_key.fingerprint))
         cls.USER_GNUPGHOME = tempfile.TemporaryDirectory(prefix=TMPDIR_PREFIX)
-        cls.user_gpg = gnupg.GPG(gnupghome=cls.USER_GNUPGHOME.name)
+        cls.user_gpg = gnupg.GPG(
+            gnupghome=cls.USER_GNUPGHOME.name,
+            verbose=True
+        )
         cls.user = User(
             'test@example.com',
             gen_passwd(),

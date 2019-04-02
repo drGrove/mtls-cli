@@ -274,6 +274,20 @@ class TestCliAsAdmin(TestCliBase):
         self.assertEqual(result.exit_code, 0)
 
     def test_revoke_certificate(self):
+        create_result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.admin.password,
+                'certificate',
+                'create'
+            ]
+        )
+        print(create_result.output)
         cert_file_path = os.path.join(self.HOME.name, 'test/test.pem')
         with open(cert_file_path, 'rb') as cert_file:
             cert = x509.load_pem_x509_certificate(
@@ -295,6 +309,7 @@ class TestCliAsAdmin(TestCliBase):
                 str(cert.serial_number)
             ]
         )
+        print(result.output)
         self.assertEqual(result.exit_code, 0)
 
     def test_add_user_by_fingerprint(self):
@@ -644,6 +659,21 @@ class TestCliAsUser(TestCliBase):
         self.assertEqual(result.exit_code, 0)
 
     def test_revoke_certificate(self):
+        create_result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.admin.password,
+                'certificate',
+                'create'
+            ]
+        )
+        print(create_result.output)
+
         cert_file_path = os.path.join(self.HOME.name, 'test/test.pem')
         with open(cert_file_path, 'rb') as cert_file:
             cert = x509.load_pem_x509_certificate(

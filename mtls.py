@@ -150,10 +150,19 @@ class MutualTLS:
             click.echo('Could not retrieve certificate from server')
             sys.exit(1)
         cert = self.convert_to_cert(cert_str)
-        with open(self.cert_file_path, 'w') as cert_file:
-            logger.info('Writing file to {}'.format(self.cert_file_path))
-            cert_file.write(
-                cert.public_bytes(serialization.Encoding.PEM).decode('utf-8')
+        try:
+            with open(self.cert_file_path, 'w') as cert_file:
+                click.echo('Writing file to {}'.format(self.cert_file_path))
+                cert_file.write(
+                    cert.public_bytes(serialization.Encoding.PEM)
+                    .decode('utf-8')
+                )
+        except Exception as e:
+            click.secho(
+                'Could not write certificate to {}'.format(
+                    self.cert_file_path
+                ),
+                fg='red'
             )
         if cert is None:
             click.echo('Could not convert to certificate')
@@ -184,7 +193,7 @@ class MutualTLS:
     def _firefox_notice(self):
         click.secho(
             'If using Firefox you may have to restart ' +
-            'before these certificates take effect. about://profiles',
+            'before these certificates take effect. about:profiles',
             fg='green'
         )
 

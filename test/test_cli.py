@@ -11,6 +11,7 @@ from click.testing import CliRunner
 from configparser import ConfigParser
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.backends import openssl
 from cryptography.hazmat.primitives.asymmetric import rsa
 import click
 import docker
@@ -32,7 +33,7 @@ def getListOfFiles(dirName):
 
 
 #logging.disable(logging.CRITICAL)
-MTLS_SERVER_VERSION = os.environ.get('MTLS_SERVER_VERSION') or 'v0.10.0'
+MTLS_SERVER_VERSION = os.environ.get('MTLS_SERVER_VERSION') or 'v0.12.0'
 
 
 def generate_key():
@@ -121,76 +122,89 @@ class User:
         return csr
 
 
-class TestCli(unittest.TestCase):
-    def setUp(self):
+class TestCliBase(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
         TMPDIR_PREFIX = os.environ.get('TMPDIR') or '/tmp/'
-        self.USER_GNUPGHOME = tempfile.TemporaryDirectory(prefix=TMPDIR_PREFIX)
-        self.HOME = tempfile.TemporaryDirectory(prefix=TMPDIR_PREFIX)
-        self.ADMIN_GNUPGHOME = tempfile.TemporaryDirectory(
+        cls.seed_dir = tempfile.TemporaryDirectory(prefix=TMPDIR_PREFIX)
+        for subpath in ['user', 'admin']:
+            os.makedirs(
+                '{base}/{subpath}'.format(
+                    base=cls.seed_dir.name,
+                    subpath=subpath
+                )
+            )
+        cls.server_config_dir = tempfile.TemporaryDirectory(
             prefix=TMPDIR_PREFIX
         )
-        self.server_config_dir = tempfile.TemporaryDirectory(
+        cls.docker = docker.from_env()
+        cls.ADMIN_GNUPGHOME = tempfile.TemporaryDirectory(
             prefix=TMPDIR_PREFIX
         )
-        self.seed_dir = tempfile.TemporaryDirectory(prefix=TMPDIR_PREFIX)
-        self.user_gpg = gnupg.GPG(gnupghome=self.USER_GNUPGHOME.name)
-        self.admin_gpg = gnupg.GPG(gnupghome=self.ADMIN_GNUPGHOME.name)
-        self.user = User(
+        cls.admin_gpg = gnupg.GPG(gnupghome=cls.ADMIN_GNUPGHOME.name)
+        cls.admin = User(
             'test@example.com',
             gen_passwd(),
             generate_key(),
-            self.user_gpg
+            cls.admin_gpg
         )
-        self.admin =User(
-            'test@example.com',
-            gen_passwd(),
-            generate_key(),
-            self.admin_gpg
-        )
-        self.docker = docker.from_env()
         file_path = os.path.join(
-            self.seed_dir.name,
-            '{}.asc'.format(self.admin.pgp_key.fingerprint),
+            cls.seed_dir.name,
+            'admin/{}.asc'.format(cls.admin.pgp_key.fingerprint),
         )
         with open(file_path, 'w') as f:
-            f.write(self.admin_gpg.export_keys(self.admin.pgp_key.fingerprint))
-        self.server_config = ConfigParser()
-        self.server_config_path = os.path.join(
-            self.server_config_dir.name,
+            f.write(cls.admin_gpg.export_keys(cls.admin.pgp_key.fingerprint))
+        cls.USER_GNUPGHOME = tempfile.TemporaryDirectory(prefix=TMPDIR_PREFIX)
+        cls.user_gpg = gnupg.GPG(gnupghome=cls.USER_GNUPGHOME.name)
+        cls.user = User(
+            'test@example.com',
+            gen_passwd(),
+            generate_key(),
+            cls.user_gpg
+        )
+        file_path = os.path.join(
+            cls.seed_dir.name,
+            'user/{}.asc'.format(cls.user.pgp_key.fingerprint),
+        )
+        with open(file_path, 'w') as f:
+            f.write(cls.user_gpg.export_keys(cls.user.pgp_key.fingerprint))
+        cls.server_config = ConfigParser()
+        cls.server_config_path = os.path.join(
+            cls.server_config_dir.name,
             'config.ini'
         )
-        self.server_config['mtls'] = {
+        cls.server_config['mtls'] = {
             'min_lifetime': '10',
-            'max_lifetime': '0'
+            'max_lifetime': '1000'
         }
-        self.server_config['ca'] = {
+        cls.server_config['ca'] = {
             'key': 'secrets/certs/authority/RootCA.key',
             'cert': 'secrets/certs/authority/RootCA.pem',
             'issuer': 'My Company Name',
             'alternate_name': '*.myname.com'
         }
-        self.server_config['gnupg'] = {
+        cls.server_config['gnupg'] = {
             'user': 'secrets/gnupg',
             'admin': 'secrets/gnupg_admin'
         }
-        self.server_config['storage'] ={
+        cls.server_config['storage'] ={
             'engine': 'sqlite3'
         }
-        self.server_config['storage.sqlite3'] = {
+        cls.server_config['storage.sqlite3'] = {
             'db_path': 'mtls-server.db'
         }
-        with open(self.server_config_path, 'w') as configfile:
-            self.server_config.write(configfile)
+        with open(cls.server_config_path, 'w') as configfile:
+            cls.server_config.write(configfile)
         volumes = {}
-        volumes[self.seed_dir.name] = {
+        volumes[cls.seed_dir.name] = {
             'bind': '/tmp/seeds',
             'mode': 'ro'
         }
-        volumes[self.server_config_path] = {
+        volumes[cls.server_config_path] = {
             'bind': '/home/mtls/config.ini',
             'mode': 'rw'
         }
-        self.server = self.docker.containers.run(
+        cls.server = cls.docker.containers.run(
             'drgrove/mtls-server:{version}'.format(
                 version=MTLS_SERVER_VERSION
             ),
@@ -199,43 +213,46 @@ class TestCli(unittest.TestCase):
             remove=True,
             ports={'4000/tcp': 4000}
         )
-        self.env = {
-            'GNUPGHOME': self.ADMIN_GNUPGHOME.name,
-            'HOME': self.HOME.name,
+        cls.HOME = tempfile.TemporaryDirectory(prefix=TMPDIR_PREFIX)
+        cls.env = {
+            'GNUPGHOME': cls.ADMIN_GNUPGHOME.name,
+            'HOME': cls.HOME.name,
             'USER': 'test',
             'HOST': str(platform.uname()[1])
         }
-        self.runner = CliRunner(env=self.env)
-        self.config = ConfigParser()
-        self.config['DEFAULT'] = {
+        cls.runner = CliRunner(env=cls.env)
+        cls.config = ConfigParser()
+        cls.config['DEFAULT'] = {
             'name': 'John Doe',
             'email': 'johndoe@example.com',
-            'fingerprint': self.admin.pgp_key.fingerprint,
+            'fingerprint': cls.admin.pgp_key.fingerprint,
             'country': 'US',
             'state': 'CA',
             'locality': 'Mountain View',
             'organization_name': 'My Org'
         }
-        self.config['test'] = {
+        cls.config['test'] = {
             'lifetime': 60,
             'url': 'http://localhost:4000',
         }
-        self.config_path = os.path.join(
-            self.HOME.name,
+        cls.config_path = os.path.join(
+            cls.HOME.name,
             'config.ini'
         )
-        with open(self.config_path, 'w') as configfile:
-            self.config.write(configfile)
+        with open(cls.config_path, 'w') as configfile:
+            cls.config.write(configfile)
 
-    def tearDown(self):
-        self.USER_GNUPGHOME.cleanup()
-        self.ADMIN_GNUPGHOME.cleanup()
-        self.HOME.cleanup()
-        self.server.stop()
-        time.sleep(10)
-        self.seed_dir.cleanup()
-        self.server_config_dir.cleanup()
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.stop()
+        cls.USER_GNUPGHOME.cleanup()
+        cls.ADMIN_GNUPGHOME.cleanup()
+        cls.seed_dir.cleanup()
+        cls.server_config_dir.cleanup()
+        cls.HOME.cleanup()
 
+
+class TestCliAsAdmin(TestCliBase):
     def test_show_help(self):
         result = self.runner.invoke(cli, ['--help'])
         self.assertEqual(result.exit_code, 0)
@@ -250,25 +267,13 @@ class TestCli(unittest.TestCase):
                 'test',
                 '--gpg-password',
                 self.admin.password,
-                'create-certificate'
+                'certificate',
+                'create'
             ]
         )
         self.assertEqual(result.exit_code, 0)
-        # TODO(drGrove): Add ssl test to hit /test endpoint
 
     def test_revoke_certificate(self):
-        create_result = self.runner.invoke(
-            cli,
-            [
-                '-c',
-                self.config_path,
-                '-s',
-                'test',
-                '--gpg-password',
-                self.admin.password,
-                'create-certificate'
-            ]
-        )
         cert_file_path = os.path.join(self.HOME.name, 'test/test.pem')
         with open(cert_file_path, 'rb') as cert_file:
             cert = x509.load_pem_x509_certificate(
@@ -284,10 +289,673 @@ class TestCli(unittest.TestCase):
                 'test',
                 '--gpg-password',
                 self.admin.password,
-                'revoke-certificate',
+                'certificate',
+                'revoke',
                 '--serial-number',
                 str(cert.serial_number)
             ]
         )
         self.assertEqual(result.exit_code, 0)
-        # TODO(drGrove): Add ssl test to hit /test endpoint
+
+    def test_add_user_by_fingerprint(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.admin.password,
+                'user',
+                'add',
+                '--fingerprint',
+                'C92FE5A3FBD58DD3EC5AA26BB10116B8193F2DBD'
+            ]
+        )
+        self.assertEqual(result.exit_code, 0)
+
+    def test_add_user_by_email(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.admin.password,
+                'user',
+                'add',
+                '--keyserver',
+                'keyserver.ubuntu.com',
+                '--email',
+                'danny@drgrovellc.com'
+            ],
+            input='0'
+        )
+        self.assertEqual(result.exit_code, 0)
+
+    def test_remove_user_by_fingerprint(self):
+        add_user_result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.admin.password,
+                'user',
+                'add',
+                '--fingerprint',
+                'C92FE5A3FBD58DD3EC5AA26BB10116B8193F2DBD'
+            ],
+            input='0'
+        )
+        result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.admin.password,
+                'user',
+                'remove',
+                '--fingerprint',
+                'C92FE5A3FBD58DD3EC5AA26BB10116B8193F2DBD'
+            ],
+            input='0'
+        )
+        self.assertEqual(result.exit_code, 0)
+
+    def test_remove_user_by_email(self):
+        add_user_result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.admin.password,
+                'user',
+                'add',
+                '--keyserver',
+                'keyserver.ubuntu.com',
+                '--email',
+                'danny@drgrovellc.com'
+            ],
+            input='0'
+        )
+        result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.admin.password,
+                'user',
+                'add',
+                '--keyserver',
+                'keyserver.ubuntu.com',
+                '--email',
+                'danny@drgrovellc.com'
+            ],
+            input='0'
+        )
+        self.assertEqual(result.exit_code, 0)
+
+    def test_add_admin_by_fingerprint(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.admin.password,
+                'user',
+                'add',
+                '--admin',
+                '--fingerprint',
+                'C92FE5A3FBD58DD3EC5AA26BB10116B8193F2DBD'
+            ]
+        )
+        self.assertEqual(result.exit_code, 0)
+
+    def test_add_admin_by_email(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.admin.password,
+                'user',
+                'add',
+                '--admin',
+                '--keyserver',
+                'keyserver.ubuntu.com',
+                '--email',
+                'danny@drgrovellc.com'
+            ],
+            input='0'
+        )
+        self.assertEqual(result.exit_code, 0)
+
+    def test_remove_admin_by_fingerprint(self):
+        add_user_result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.admin.password,
+                'user',
+                'add',
+                '--admin',
+                '--fingerprint',
+                'C92FE5A3FBD58DD3EC5AA26BB10116B8193F2DBD'
+            ],
+            input='0'
+        )
+        result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.admin.password,
+                'user',
+                'remove',
+                '--admin',
+                '--fingerprint',
+                'C92FE5A3FBD58DD3EC5AA26BB10116B8193F2DBD'
+            ],
+            input='0'
+        )
+        self.assertEqual(result.exit_code, 0)
+
+    def test_remove_admin_by_email(self):
+        add_user_result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.admin.password,
+                'user',
+                'add',
+                '--admin',
+                '--keyserver',
+                'keyserver.ubuntu.com',
+                '--email',
+                'danny@drgrovellc.com'
+            ],
+            input='0'
+        )
+        result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.admin.password,
+                'user',
+                'add',
+                '--admin',
+                '--keyserver',
+                'keyserver.ubuntu.com',
+                '--email',
+                'danny@drgrovellc.com'
+            ],
+            input='0'
+        )
+        self.assertEqual(result.exit_code, 0)
+
+    def get_crl_to_output(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                '-s',
+                'test',
+                'certificate',
+                'crl',
+                '-o'
+            ]
+        )
+        self.assertEqual(result.exit_code, 0)
+        crl = x509.load_pem_x509_crl(
+            data=bytes(result.output, 'UTF-8'),
+            backend=default_backend()
+        )
+        self.assertIsInstance(crl, openssl.x509._CertificateRevocationList)
+        self.assertIsInstance(
+            crl.get_revoked_certificate_by_serial_number(rev_serial_num),
+            openssl.x509._RevokedCertificate
+        )
+        self.assertIn(
+            "-----BEGIN X509 CRL-----",
+            crl.public_bytes(serialization.Encoding.PEM).decode('UTF-8')
+        )
+        self.assertIn(
+            "-----END X509 CRL-----",
+            crl.public_bytes(serialization.Encoding.PEM).decode('UTF-8')
+        )
+
+    def get_crl_to_file(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                '-s',
+                'test',
+                'certificate',
+                'crl',
+                '-no'
+            ]
+        )
+        self.assertEqual(result.exit_code, 0)
+        with open('{base}/test/test.crl'.format(self.HOME.name), 'rb') as crl:
+            crl = x509.load_pem_x509_crl(
+                data=f.read(),
+                backend=default_backend()
+            )
+            self.assertIsInstance(crl, openssl.x509._CertificateRevocationList)
+            self.assertIsInstance(
+                crl.get_revoked_certificate_by_serial_number(rev_serial_num),
+                openssl.x509._RevokedCertificate
+            )
+            self.assertIn(
+                "-----BEGIN X509 CRL-----",
+                crl.public_bytes(serialization.Encoding.PEM).decode('UTF-8')
+            )
+            self.assertIn(
+                "-----END X509 CRL-----",
+                crl.public_bytes(serialization.Encoding.PEM).decode('UTF-8')
+            )
+
+
+class TestCliAsUser(TestCliBase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.env = {
+            'GNUPGHOME': cls.USER_GNUPGHOME.name,
+            'HOME': cls.HOME.name,
+            'USER': 'test',
+            'HOST': str(platform.uname()[1])
+        }
+        cls.runner = CliRunner(env=cls.env)
+        cls.config = ConfigParser()
+        cls.config['DEFAULT'] = {
+            'name': 'John Doe',
+            'email': 'johndoe@example.com',
+            'fingerprint': cls.user.pgp_key.fingerprint,
+            'country': 'US',
+            'state': 'CA',
+            'locality': 'Mountain View',
+            'organization_name': 'My Org'
+        }
+        cls.config['test'] = {
+            'lifetime': 60,
+            'url': 'http://localhost:4000',
+        }
+        cls.config_path = os.path.join(
+            cls.HOME.name,
+            'config.ini'
+        )
+        with open(cls.config_path, 'w') as configfile:
+            cls.config.write(configfile)
+
+    def test_show_help(self):
+        result = self.runner.invoke(cli, ['--help'])
+        self.assertEqual(result.exit_code, 0)
+
+    def test_create_certificate(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.user.password,
+                'certificate',
+                'create'
+            ]
+        )
+        self.assertEqual(result.exit_code, 0)
+
+    def test_revoke_certificate(self):
+        cert_file_path = os.path.join(self.HOME.name, 'test/test.pem')
+        with open(cert_file_path, 'rb') as cert_file:
+            cert = x509.load_pem_x509_certificate(
+                cert_file.read(),
+                default_backend()
+            )
+        result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.user.password,
+                'certificate',
+                'revoke',
+                '--serial-number',
+                str(cert.serial_number)
+            ]
+        )
+        self.assertEqual(result.exit_code, 0)
+
+    def test_add_user_by_fingerprint(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.user.password,
+                'user',
+                'add',
+                '--fingerprint',
+                'C92FE5A3FBD58DD3EC5AA26BB10116B8193F2DBD'
+            ]
+        )
+        self.assertEqual(result.exit_code, 1)
+
+    def test_add_user_by_email(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.user.password,
+                'user',
+                'add',
+                '--keyserver',
+                'keyserver.ubuntu.com',
+                '--email',
+                'danny@drgrovellc.com'
+            ],
+            input='0'
+        )
+        self.assertEqual(result.exit_code, 1)
+
+    def test_remove_user_by_fingerprint(self):
+        add_user_result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.user.password,
+                'user',
+                'add',
+                '--fingerprint',
+                'C92FE5A3FBD58DD3EC5AA26BB10116B8193F2DBD'
+            ],
+            input='0'
+        )
+        result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.user.password,
+                'user',
+                'remove',
+                '--fingerprint',
+                'C92FE5A3FBD58DD3EC5AA26BB10116B8193F2DBD'
+            ],
+            input='0'
+        )
+        self.assertEqual(result.exit_code, 1)
+
+    def test_remove_user_by_email(self):
+        add_user_result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.user.password,
+                'user',
+                'add',
+                '--keyserver',
+                'keyserver.ubuntu.com',
+                '--email',
+                'danny@drgrovellc.com'
+            ],
+            input='0'
+        )
+        result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.user.password,
+                'user',
+                'add',
+                '--keyserver',
+                'keyserver.ubuntu.com',
+                '--email',
+                'danny@drgrovellc.com'
+            ],
+            input='0'
+        )
+        self.assertEqual(result.exit_code, 1)
+
+    def test_add_admin_by_fingerprint(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.user.password,
+                'user',
+                'add',
+                '--admin',
+                '--fingerprint',
+                'C92FE5A3FBD58DD3EC5AA26BB10116B8193F2DBD'
+            ]
+        )
+        self.assertEqual(result.exit_code, 1)
+
+    def test_add_admin_by_email(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.user.password,
+                'user',
+                'add',
+                '--admin',
+                '--keyserver',
+                'keyserver.ubuntu.com',
+                '--email',
+                'danny@drgrovellc.com'
+            ],
+            input='0'
+        )
+        self.assertEqual(result.exit_code, 1)
+
+    def test_remove_admin_by_fingerprint(self):
+        add_user_result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.user.password,
+                'user',
+                'add',
+                '--admin',
+                '--fingerprint',
+                'C92FE5A3FBD58DD3EC5AA26BB10116B8193F2DBD'
+            ],
+            input='0'
+        )
+        result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.user.password,
+                'user',
+                'remove',
+                '--admin',
+                '--fingerprint',
+                'C92FE5A3FBD58DD3EC5AA26BB10116B8193F2DBD'
+            ],
+            input='0'
+        )
+        self.assertEqual(result.exit_code, 1)
+
+    def test_remove_admin_by_email(self):
+        add_user_result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.user.password,
+                'user',
+                'add',
+                '--admin',
+                '--keyserver',
+                'keyserver.ubuntu.com',
+                '--email',
+                'danny@drgrovellc.com'
+            ],
+            input='0'
+        )
+        result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                '-s',
+                'test',
+                '--gpg-password',
+                self.user.password,
+                'user',
+                'add',
+                '--admin',
+                '--keyserver',
+                'keyserver.ubuntu.com',
+                '--email',
+                'danny@drgrovellc.com'
+            ],
+            input='0'
+        )
+        self.assertEqual(result.exit_code, 1)
+
+    def get_crl_to_output(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                '-s',
+                'test',
+                'certificate',
+                'crl',
+                '-o'
+            ]
+        )
+        self.assertEqual(result.exit_code, 0)
+        crl = x509.load_pem_x509_crl(
+            data=bytes(result.output, 'UTF-8'),
+            backend=default_backend()
+        )
+        self.assertIsInstance(crl, openssl.x509._CertificateRevocationList)
+        self.assertIsInstance(
+            crl.get_revoked_certificate_by_serial_number(rev_serial_num),
+            openssl.x509._RevokedCertificate
+        )
+        self.assertIn(
+            "-----BEGIN X509 CRL-----",
+            crl.public_bytes(serialization.Encoding.PEM).decode('UTF-8')
+        )
+        self.assertIn(
+            "-----END X509 CRL-----",
+            crl.public_bytes(serialization.Encoding.PEM).decode('UTF-8')
+        )
+
+    def get_crl_to_file(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                '-s',
+                'test',
+                'certificate',
+                'crl',
+                '-no'
+            ]
+        )
+        self.assertEqual(result.exit_code, 0)
+        with open('{base}/test/test.crl'.format(self.HOME.name), 'rb') as crl:
+            crl = x509.load_pem_x509_crl(
+                data=f.read(),
+                backend=default_backend()
+            )
+            self.assertIsInstance(crl, openssl.x509._CertificateRevocationList)
+            self.assertIsInstance(
+                crl.get_revoked_certificate_by_serial_number(rev_serial_num),
+                openssl.x509._RevokedCertificate
+            )
+            self.assertIn(
+                "-----BEGIN X509 CRL-----",
+                crl.public_bytes(serialization.Encoding.PEM).decode('UTF-8')
+            )
+            self.assertIn(
+                "-----END X509 CRL-----",
+                crl.public_bytes(serialization.Encoding.PEM).decode('UTF-8')
+            )

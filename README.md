@@ -51,6 +51,183 @@ To verify a certificate via the commandline on Linux:
 A Root certificate is required for this. The CLI will by default pull the Root CA and install it into your Trust Store
 as a Trusted Root Certificate.
 
+## Installation ##
+
+### Building From Source ###
+
+```shell
+$ git clone https://github.com/drGrove/mtls-cli
+$ make setup
+$ make install
+# If you'd like to install directly into ~/.local/bin you can also use
+$ make install-bin
+```
+
+### Using The Latest Release ###
+
+There are signed binaries that are shipped along with each release. To use a binary you can do the following:
+
+```shell
+$ VERSION=<version> (ex. VERSION=v0.8.0)
+$ wget https://github.com/drGrove/mtls-cli/releases/download/$VERSION/mtls-$VERSION.tar.gz
+$ tar zxvf mtls-$VERSION.tar.gz
+$ cd mtls
+$ sha256sum mtls && cat mtls.sha256sum
+$ gpg --verify mtls.sig
+# From there you can install the binary wherever you'd like in your path
+```
+
+## Configuration ##
+
+Configuring mtls is done via a `config.ini`. There is an example in the repo [here](config.ini.example).
+
+You'll need a similar base configuration:
+
+```ini
+[DEFAULT]
+name=John Doe
+email=johndoe@example.com
+; PGP Fingerprint
+fingerprint=XXXXXXXX
+country=US
+state=CA
+locality=Mountain View
+organization=myhost
+```
+
+Then for each server you'd like to connect to you can create a section for that service.
+
+```ini
+[myserver]
+email=johndoe@myserver.com
+url=https://certauth.myserver.com
+```
+
+The `url` should match the base URL of the Certificate Authority you'll connect to. This will allow `mtls` to make the
+requests to generate your client certificate.
+
+## Usage ##
+
+Once configured and provided access by a Certificate Authority Administrator you will be able to begin creating
+certificates for yourself. By default the lifetime of your certificate is 18 hours. But Certificate Authorities are able
+to set their own minimum and maximum lifetime. Speak to a certificate authority administrator about their settings.
+
+### Creating A Certificate ###
+
+```shell
+$ mtls -s myserver certificate create
+```
+
+### Revoking A Certificate ###
+
+If you're certificate has become compromised you can revoke your certificate prior to it's expiration. Certificate
+Authority Administrators can also expire certificates if they feel that you've been compromised or if they belive you
+should no longer have access to the services.
+
+You have a few options as far a certificate revoke goes.
+
+#### By Serial Number ####
+
+```shell
+$ mtls -s myserver certificate revoke --serial <Certificate Serial Number>
+```
+
+#### By Certificate Name ####
+
+To get a certificate name, it will follow the following convention: `ISSUER - USER@HOSTNAME`. On the first connection to
+a Certificate Authority, you're `~/.config/mtls/config.ini` for a particular server will be updated to provide the
+issuer name as found in the Root CA Certificate. You can also find this by running `certutil -L -d ~/.pki/nssdb` or
+viewing the certificate in chrome or firefox
+
+```shell
+$ mtls -s myserver certicate revoke --name <name>
+```
+
+### By Fingerprint ####
+
+NOTE: This will revoke all certificates related to a particular fingerprint
+
+```shell
+$ mtls -s myserver certificate revoke --fingerprint <fingerprint>
+```
+
+## Administration ##
+
+Administration of the `mtls` can be done via the CLI as well. Administrators can add and remove users as they see fit
+but currently an administator needs to be removed individually from both trust stores.
+
+### Users ###
+
+#### Adding Users ####
+
+##### By Fingerprint #####
+
+```shell
+$ mtls -s myserver user add --fingeprint FINGERPRINT
+```
+
+##### By Email #####
+
+This will poll pgp.mit.edu by default and return a list of PGP keys if more than 1 valid PGP key is returned. You can
+query any keyserver via the `--keyserver KEYSERVER_URL` flag
+
+```shell
+$ mtls -s myserver user add --email johndoe@example.com
+```
+
+#### Removing Users ####
+
+##### By Fingerprint #####
+
+```shell
+$ mtls -s myserver user remove --fingeprint FINGERPRINT
+```
+
+##### By Email #####
+
+This will poll pgp.mit.edu by default and return a list of PGP keys if more than 1 valid PGP key is returned. You can
+query any keyserver via the `--keyserver KEYSERVER_URL` flag
+
+```shell
+$ mtls -s myserver user remove --email johndoe@example.com
+```
+
+### Administrators ###
+
+#### Adding Admins ####
+
+##### By Fingerprint #####
+
+```shell
+$ mtls -s myserver user add --fingeprint FINGERPRINT --admin
+```
+
+##### By Email #####
+
+This will poll pgp.mit.edu by default and return a list of PGP keys if more than 1 valid PGP key is returned. You can
+query any keyserver via the `--keyserver KEYSERVER_URL` flag
+
+```shell
+$ mtls -s myserver user add --email johndoe@example.com --admin
+```
+
+#### Removing Users ####
+
+##### By Fingerprint #####
+
+```shell
+$ mtls -s myserver user remove --fingeprint FINGERPRINT --admin
+```
+
+##### By Email #####
+
+This will poll pgp.mit.edu by default and return a list of PGP keys if more than 1 valid PGP key is returned. You can
+query any keyserver via the `--keyserver KEYSERVER_URL` flag
+
+```shell
+$ mtls -s myserver user remove --email johndoe@example.com --admin
+```
+
 ## Development ##
 
 ### Dependencies ###

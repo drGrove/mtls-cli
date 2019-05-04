@@ -53,9 +53,9 @@ coveralls:
 
 pkg: build
 	@echo "Generating sha256sum of Binary"
-	@sha256sum $(ROOT_DIR)/mtls/mtls > $(ROOT_DIR)/mtls/mtls.sha256sum
+	@sha256sum mtls/mtls > mtls/mtls.sha256sum
 	@echo "Signing binary"
-	@gpg --sign --detach-sign --output $(ROOT_DIR)/mtls/mtls.sig $(ROOT_DIR)/mtls/mtls
+	@gpg --sign --detach-sign --output mtls/mtls.sig mtls/mtls
 
 clean:
 	@rm -r build dist $(PIP_ENV)

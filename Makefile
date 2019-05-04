@@ -1,15 +1,12 @@
 .PHONY: setup env clean lint build test
 SHELL := /bin/bash
-PIP_ENV := $(shell pipenv --venv)
+PIP_ENV:=$(shell pipenv --venv)
 ROOT_DIR:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+DESTDIR ?= ~/.local/bin/
 
-setup:
-	@pipenv install
-	@pipenv run easy_install pyinstaller==3.4
-
-setup-dev: set-hooks
+setup: set-hooks
 	@pipenv install --dev
-	@pipenv run easy_install pyinstaller==3.4
+	@pipenv run easy_install PyInstaller==3.4
 
 pipenv-lock:
 	@pipenv update
@@ -21,19 +18,16 @@ set-hooks:
 		ln -s $(PWD)/scripts/git-hooks/pre-commit.sh .git/hooks/pre-commit) \
 		|| true
 
-install:
-	@pipenv run pip3 install -r requirements.txt
-
-install-bin: build
-	@mkdir -p ~/.local/bin
-	@echo "Copying mtls/mtls to ~/.local/bin, Please ensure you have ~/.local/bin in your PATH"
-	@cp mtls/mtls ~/.local/bin/
+install: build
+	@mkdir -p $(DESTDIR)
+	@echo "Copying mtls/mtls to $(DESTDIR), Please ensure you have $(DESTDIR) in your PATH"
+	@cp mtls/mtls $(DESTDIR)
 
 lint:
-	@$(PIP_ENV)/bin/pycodestyle --first mtls.py
+	@pipenv run pycodestyle --first ./mtls.py
 
-build:
-	@$(PIP_ENV)/bin/pyinstaller --onefile mtls.spec
+build: setup
+	@pipenv run pyinstaller --onefile ./mtls.spec
 
 run:
 	@$(PIP_ENV)/bin/python3 cli.py $(ARGS)

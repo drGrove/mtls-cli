@@ -2,6 +2,11 @@
 
 [![Known Vulnerabilities](https://snyk.io/test/github/drGrove/mtls-client/badge.svg)](https://snyk.io/test/github/drGrove/mtls-client)
 
+## Runtime Dependencies ##
+
+* gnupg
+* libnss (certutil/pk12util on linux/windows, security on MacOS)
+
 ## Overview ##
 
 A mutual TLS (mTLS) system for authenticating users to services that need to be on the internet, but should only be
@@ -17,6 +22,7 @@ This system uses some of the base NSS primitives found in base tools for the ass
 This project currently works in the following OSes:
 
 * Linux (Arch/Ubuntu tested)
+* MacOS
 
 This project is based on the whitepapers for [Beyond Corp](https://www.beyondcorp.com/), which is Googles Zero Trust
 Security Model.
@@ -57,10 +63,9 @@ as a Trusted Root Certificate.
 
 ```shell
 $ git clone https://github.com/drGrove/mtls-cli
-$ make setup
-$ make install
+$ make build
 # If you'd like to install directly into ~/.local/bin you can also use
-$ make install-bin
+$ make install
 ```
 
 ### Using The Latest Release ###
@@ -73,7 +78,8 @@ $ wget https://github.com/drGrove/mtls-cli/releases/download/$VERSION/mtls-$VERS
 $ tar zxvf mtls-$VERSION.tar.gz
 $ cd mtls
 $ sha256sum mtls && cat mtls.sha256sum
-$ gpg --verify mtls.sig
+$ gpg --recv-keys C92FE5A3FBD58DD3EC5AA26BB10116B8193F2DBD
+$ gpg --verify --trust-model always mtls.sig
 # From there you can install the binary wherever you'd like in your path
 ```
 
@@ -233,15 +239,17 @@ $ mtls -s myserver user remove --email johndoe@example.com --admin
 ### Dependencies ###
 
 * make
+* pip
 * pipenv
+* gnupg
 * libnss (certutil/pk12util on linux/windows, security on MacOS)
 
 ### Getting Started ###
 
 To begin development run the following commands:
 
-```
-shell make setup
+```shell
+make setup
 mkdir ~/.config/mtls
 cp config.ini.example config.ini
 ```

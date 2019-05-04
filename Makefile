@@ -56,6 +56,7 @@ pkg: build
 	@sha256sum mtls/mtls > mtls/mtls.sha256sum
 	@echo "Signing binary"
 	@gpg --sign --detach-sign --output mtls/mtls.sig mtls/mtls
+	@tar -zcvf mtls-$$(git describe --tags `git rev-list --tags --max-count=1`).tar.gz mtls
 
 clean:
 	@rm -r build dist $(PIP_ENV)

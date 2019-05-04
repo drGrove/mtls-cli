@@ -27,7 +27,7 @@ lint:
 	@pipenv run pycodestyle --first ./mtls.py
 
 build: setup
-	@pipenv run pyinstaller --onefile ./mtls.spec
+	@pipenv run pyinstaller -D ./mtls.spec
 
 run:
 	@$(PIP_ENV)/bin/python3 cli.py $(ARGS)

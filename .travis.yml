@@ -1,40 +1,41 @@
 language: python
-
 matrix:
   include:
-    - os: linux
-      python: 3.6
-    - os: linux
-      python: 3.7-dev
-    - os: oxs
-      python: 3.5
-
+  - os: linux
+    python: 3.6
+  - os: linux
+    python: 3.7-dev
+  - os: osx
+    python: 3.5
 services:
-  - docker
-
+- docker
 env:
-  - PIPENV_IGNORE_VIRTUALENVS=1 MTLS_SERVER_VERSION=v0.10.0 TMPDIR=/home/travis/tmp
-
+- PIPENV_IGNORE_VIRTUALENVS=1 MTLS_SERVER_VERSION=v0.10.0 TMPDIR=/home/travis/tmp
 addons:
   apt:
     packages:
-      - cmake
-      - libnss3
+    - cmake
+    - libnss3
   homebrew:
     packages:
-      - nss
-      - gnupg
-      - openssl
+    - nss
+    - gnupg
+    - openssl
+  artifacts:
+    s3_region: "us-west-1"
+    paths:
+      - $(ls mtls-*.tar.gz | tr "\n" ":")
 
 before_install:
-  - docker pull drgrove/mtls-server:${MTLS_SERVER_VERSION}
-  - pip3 install pipenv
+- docker pull drgrove/mtls-server:${MTLS_SERVER_VERSION}
+- pip3 install pipenv
 
 install:
-  - make setup-dev
+- make setup
 
 script:
-  - make test coverage
+- make test coverage
+- make pkg SIGN=0
 
 after_success:
-  - make coveralls
+- make coveralls

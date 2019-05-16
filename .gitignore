@@ -1,6 +1,6 @@
 env
 *.pyc
-mtls
+mtls-*
 build
 *.swp
 .coverage

@@ -3,6 +3,13 @@ SHELL := /bin/bash
 PIP_ENV:=$(shell pipenv --venv)
 ROOT_DIR:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 DESTDIR ?= ~/.local/bin/
+SIGN := 1
+
+ifeq ($(OS),Windows_NT)
+    UNAME := Windows
+else
+    UNAME := $(shell uname -s)
+endif
 
 setup: set-hooks
 	@pipenv install --dev
@@ -27,7 +34,7 @@ lint:
 	@pipenv run pycodestyle --first ./mtls.py
 
 build: setup
-	@pipenv run pyinstaller --onefile ./mtls.spec
+	@pipenv run pyinstaller --onefile --distpath mtls-$(UNAME) mtls.spec
 
 run:
 	@$(PIP_ENV)/bin/python3 cli.py $(ARGS)
@@ -47,10 +54,16 @@ coveralls:
 
 pkg: build
 	@echo "Generating sha256sum of Binary"
-	@sha256sum mtls/mtls > mtls/mtls.sha256sum
+ifeq ($(UNAME), "Darwin")
+	@shasum -a256 mtls-$(UNAME)/mtls > mtls-$(UNAME)/mtls.sha256sum
+else
+	@sha256sum mtls-$(UNAME)/mtls > mtls-$(UNAME)/mtls.sha256sum
+endif
+ifeq ($(SIGN), 1)
 	@echo "Signing binary"
-	@gpg --sign --detach-sign --output mtls/mtls.sig mtls/mtls
-	@tar -zcvf mtls-$$(git describe --tags `git rev-list --tags --max-count=1`).tar.gz mtls
+	@gpg --sign --detach-sign --output mtls-$(UNAME)/mtls.sig mtls-$(UNAME)/mtls
+endif
+	@tar -zcvf mtls-$(UNAME)-$$(git describe --tags `git rev-list --tags --max-count=1`).tar.gz mtls-$(UNAME)
 
 clean:
-	@rm -r build dist $(PIP_ENV)
+	@rm -r build dist $(PIP_ENV) mtls-$(UNAME)

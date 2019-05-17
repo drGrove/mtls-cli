@@ -11,21 +11,8 @@ executor:
       xcode: "10.0.0"
 
 jobs:
-  build:
-    working_directory: ~/mtls-cli
-    docker:
-      - image: circleci/python:3.6.4 # every job must define an image for the docker executor and subsequent jobs may define a different image.
-        environment:
-          PIPENV_VENV_IN_PROJECT: true
-    steps:
-      - checkout
-      - run:
-          command: |
-            sudo pip install pipenv
-
-jobs:
   init:
-    executor: mtls-cli
+    executor: linux
     working_directory: ~/mtls-cli
     steps:
       - checkout
@@ -58,7 +45,7 @@ jobs:
             - Pipfile.lock
 
   lint:
-    executor: mtls-cli
+    executor: linux
     working_directory: ~/mtls-cli
     steps:
       - attach_workspace:
@@ -71,7 +58,7 @@ jobs:
           command: make lint
 
   release-package-linux:
-    executor: mtls-cli
+    executor: linux
     working_directory: ~/mtls-cli
     steps:
       - attach_workspace:

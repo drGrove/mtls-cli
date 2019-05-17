@@ -77,7 +77,9 @@ jobs:
       - pip_install
       - run:
           name: Setup
-          command: make setup
+          command: |
+            make setup
+            mkdir output
       - persist_to_workspace:
           root: ~/mtls-cli
           paths:
@@ -86,6 +88,7 @@ jobs:
             - mtls-cli/*
             - scripts/*
             - test/*
+            - output/*
             - mtls.spec
             - ./*.py
             - Makefile
@@ -116,7 +119,7 @@ jobs:
           name: Package
           command: |
             make pkg SIGN=0
-            mv "mtls-Linux-$(cat VERSION).tar.gz" dist/
+            mv "mtls-Linux-$(cat VERSION).tar.gz" output/
       - run:
           name: Test Packaged mtls
           command: make run-build
@@ -134,7 +137,7 @@ jobs:
           name: Package
           command: |
             make pkg SIGN=0
-            mv "mtls-Darwin-$(cat VERSION).tar.gz" dist/
+            mv "mtls-Darwin-$(cat VERSION).tar.gz" output/
       - run:
           name: Test Packaged mtls
           command: make run-build
@@ -146,7 +149,7 @@ jobs:
       - attach_workspace:
           at: ~/mtls-cli
       - store_artifacts:
-          path: dist/
+          path: output/
 
   publish-packages:
     executor: linux

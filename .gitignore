@@ -1,3 +1,4 @@
+VERSION
 env
 *.pyc
 mtls-*
@@ -6,4 +7,3 @@ build
 .coverage
 __pycache__
 *.tar.gz
-./VERSION

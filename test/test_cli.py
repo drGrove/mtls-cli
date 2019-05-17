@@ -127,7 +127,7 @@ class TestCliBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         TMPDIR_PREFIX = os.environ.get('TMPDIR') or '/tmp/'
-        cls.seed_dir = tempfile.TemporaryDirectory(prefix=TMPDIR_PREFIX)
+        cls.seed_dir = tempfile.TemporaryDirectory(dir=TMPDIR_PREFIX)
         for subpath in ['user', 'admin']:
             os.makedirs(
                 '{base}/{subpath}'.format(

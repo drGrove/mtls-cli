@@ -6,3 +6,4 @@ build
 .coverage
 __pycache__
 *.tar.gz
+./VERSION

@@ -27,6 +27,20 @@ commands:
           key: pip-<< parameters.key >>-{{ .Branch }}-{{ checksum "Pipfile" }}-{{ checksum "Pipfile.lock" }}
           paths:
           - << parameters.dir >>
+  apt:
+    description: "Install apt dependencies"
+    steps:
+      - install:
+          name: Apt Install
+          command: |
+            apt install -y gnupg nss make
+  brew:
+    description: "Install brew dependencies"
+  steps:
+      - install:
+          name: Brew Install
+          command: |
+            brew install python3 gnupg nss make
 
 
 executors:
@@ -148,6 +162,8 @@ jobs:
       - attach_workspace:
           at: ~/mtls-cli
 
+      - apt
+
       - pip_install
 
       - run:
@@ -168,6 +184,8 @@ jobs:
     steps:
       - attach_workspace:
           at: ~/mtls-cli
+
+      - brew
 
       - pip_install:
           dir: /Users/distiller/.local/share/virtualenvs/

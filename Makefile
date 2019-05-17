@@ -12,7 +12,7 @@ else
 endif
 
 setup: set-hooks
-	@pipenv install --dev
+	@pipenv --three install --dev
 	@pipenv run easy_install PyInstaller==3.4
 
 pipenv-lock:
@@ -34,10 +34,13 @@ lint:
 	@pipenv run pycodestyle --first ./mtls.py
 
 build: setup
-	@pipenv run pyinstaller --onefile --distpath mtls-$(UNAME) mtls.spec
+	@pipenv run pyinstaller --onefile --distpath=mtls-$(UNAME) mtls.spec
 
 run:
 	@$(PIP_ENV)/bin/python3 cli.py $(ARGS)
+
+run-build:
+	@./mtls-$(UNAME)/mtls $(ARGS)
 
 test:
 	@$(PIP_ENV)/bin/coverage run -m unittest -v

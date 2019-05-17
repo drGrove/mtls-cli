@@ -258,14 +258,14 @@ NOTE: You will need to add a server to communicate with. The URL must have a sch
 
 You can run without compiling by using:
 
-```
-shell make run SERVICE=myservice
+```shell
+make run SERVICE=myservice
 ```
 
 To build a binary:
 
-```
-shell make build
+```shell
+make build
 ```
 
 NOTE: This will output to an mtls folder within the root of the project. This folder has been gitignored and only

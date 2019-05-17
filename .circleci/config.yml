@@ -1,0 +1,219 @@
+version: 2.1
+
+executor:
+  linux:
+    docker:
+      - image: circleci/python:3.7-stretch
+        environment:
+          PIPENV_VENV_IN_PROJECT: true
+  osx:
+    macos:
+      xcode: "10.0.0"
+
+jobs:
+  build:
+    working_directory: ~/mtls-cli
+    docker:
+      - image: circleci/python:3.6.4 # every job must define an image for the docker executor and subsequent jobs may define a different image.
+        environment:
+          PIPENV_VENV_IN_PROJECT: true
+    steps:
+      - checkout
+      - run:
+          command: |
+            sudo pip install pipenv
+
+jobs:
+  init:
+    executor: mtls-cli
+    working_directory: ~/mtls-cli
+    steps:
+      - checkout
+
+      - restore_cache:
+          key: ui-{{ .Branch }}-{{ checksum "mtls-cli/ui/package.json" }}
+
+      - run:
+          name: Build UI
+          command: make build-ui
+
+      - save_cache:
+          key: ui-{{ .Branch }}-{{ checksum "mtls-cli/ui/package.json" }}
+          paths:
+            - "mtls-cli/ui/node_modules"
+
+      - persist_to_workspace:
+          root: ~/mtls-cli
+          paths:
+            - .coveragerc
+            - .git/*
+            - mtls-cli/*
+            - scripts/*
+            - test/*
+            - mtls-cli.spec
+            - *.py
+            - Makefile
+            - requirements.txt
+            - Pipfile
+            - Pipfile.lock
+
+  lint:
+    executor: mtls-cli
+    working_directory: ~/mtls-cli
+    steps:
+      - attach_workspace:
+          at: ~/mtls-cli
+
+      - pip_install
+
+      - run:
+          name: Lint
+          command: make lint
+
+  release-package-linux:
+    executor: mtls-cli
+    working_directory: ~/mtls-cli
+    steps:
+      - attach_workspace:
+          at: ~/mtls-cli
+
+      - pip_install
+
+      - run:
+          name: Package
+          command: make pkg
+
+      - run:
+          name: Upload to GitHub
+          command: |
+            ghr -draft -u mtls-cli $CIRCLE_TAG "mtls-Linux-${CIRCLE_TAG}.tar.gz"
+            mv "mtls-Linux-${CIRCLE_TAG}.tar.gz" dist/
+
+      - store_artifacts:
+          path: dist/
+
+  release-package-osx:
+    executor: osx
+    working_directory: ~/mtls-cli
+    steps:
+      - attach_workspace:
+          at: ~/mtls-cli
+
+      - run:
+          name: Install Packages
+          command: brew install golang
+
+      - run:
+          name: Update GO PATHS
+          command: |
+            echo 'export GOROOT=/usr/local/opt/go/libexec' >> $BASH_ENV
+            echo 'export GOPATH=$HOME/gocode' >> $BASH_ENV
+            echo 'export PATH=$PATH:$GOROOT/bin:$GOPATH/bin' >> $BASH_ENV
+
+      - run:
+          name: Install ghr
+          command: go get -u github.com/tcnksm/ghr
+
+      - pip_install:
+          dir: /Users/distiller/.local/share/virtualenvs/
+          key: osx
+
+      - run:
+          name: Package
+          command: make pkg
+
+      - run:
+          name: Test Packaged mtls
+          command: make run-build
+
+      - run:
+          name: Upload to GitHub
+          command: |
+            ghr -draft -u mtls-cli $CIRCLE_TAG "mtls-Darwin-${CIRCLE_TAG}.tar.gz"
+            mv "mtls-Darwin-${CIRCLE_TAG}.tar.gz" dist/
+
+      - store_artifacts:
+          path: dist/
+
+  test:
+    executor: linux
+    working_directory: ~/mtls-cli
+    steps:
+      - attach_workspace:
+          at: ~/mtls-cli
+
+      - pip_install
+
+      - run:
+          name: Run Tests
+          command: make test
+
+      - run:
+          name: Code Coverage
+          command: make coverage
+
+      - run:
+          name: Test build
+          command: make build
+
+  test-osx:
+    executor: osx
+    working_directory: ~/mtls-cli
+    steps:
+      - attach_workspace:
+          at: ~/mtls-cli
+
+      - pip_install:
+          dir: /Users/distiller/.local/share/virtualenvs/
+          key: osx
+
+      - run:
+          name: Run Tests
+          command: make test
+
+      - run:
+          name: Code Coverage
+          command: make coverage
+
+      - run:
+          name: Test build
+          command: make build
+
+filter_all_tags: &filter_all_tags
+  filters:
+    tags:
+      only: /.*/
+
+filter_only_tags: &filter_only_tags
+  filters:
+    tags:
+      only: /.*/
+    branches:
+      ignore: /.*/
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      - init:
+          <<: *filter_all_tags
+      - lint:
+          <<: *filter_all_tags
+          requires:
+          - init
+      - test:
+          <<: *filter_all_tags
+          requires:
+          - init
+      - test-osx:
+          <<: *filter_all_tags
+          requires:
+          - init
+      - release-package-linux:
+          <<: *filter_only_tags
+          requires:
+          - test
+      - release-package-osx:
+          <<: *filter_only_tags
+          requires:
+          - test-osx

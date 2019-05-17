@@ -242,11 +242,13 @@ workflows:
       #     - init
       - build-package-linux:
           <<: *filter_all_tags
-          # requires:
+          requires:
+            - init
           # - test
       - build-package-macos:
           <<: *filter_all_tags
-          # requires:
+          requires:
+            - init
           # - test-macos
       - store-artifacts:
           <<: *filter_all_tags

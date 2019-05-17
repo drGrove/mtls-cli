@@ -51,7 +51,7 @@ jobs:
             - scripts/*
             - test/*
             - mtls-cli.spec
-            - *.py
+            - ./*.py
             - Makefile
             - requirements.txt
             - Pipfile

@@ -114,7 +114,8 @@ jobs:
       - pip_install
       - run:
           name: Package
-          command: make pkg
+          command: |
+            make pkg SIGN=0
       - run:
           name: Move package to dist
           command: mv "mtls-Linux-*.tar.gz" dist/
@@ -130,7 +131,8 @@ jobs:
           key: osx
       - run:
           name: Package
-          command: make pkg
+          command: |
+            make pkg SIGN=0
       - run:
           name: Test Packaged mtls
           command: make run-build

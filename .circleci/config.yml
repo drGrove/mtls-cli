@@ -116,9 +116,10 @@ jobs:
           name: Package
           command: |
             make pkg SIGN=0
+            mv "mtls-Linux-$(cat VERSION).tar.gz" dist/
       - run:
-          name: Move package to dist
-          command: mv "mtls-Linux-$(cat VERSION).tar.gz" dist/
+          name: Test Packaged mtls
+          command: make run-build
 
   build-package-macos:
     executor: osx
@@ -133,13 +134,10 @@ jobs:
           name: Package
           command: |
             make pkg SIGN=0
+            mv "mtls-Darwin-$(cat VERSION).tar.gz" dist/
       - run:
           name: Test Packaged mtls
           command: make run-build
-      - run:
-          name: Move package to dist
-          command: |
-            mv "mtls-Darwin-$(cat VERSION).tar.gz" dist/
 
   store-artifacts:
     executor: linux

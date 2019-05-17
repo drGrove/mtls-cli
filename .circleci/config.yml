@@ -30,7 +30,7 @@ commands:
     parameters:
       dir:
         type: string
-        default: ~/.tmp
+        default: ~/mtls-cli/.tmp
     steps:
       - run:
           name: Test

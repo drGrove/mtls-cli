@@ -68,7 +68,7 @@ ifeq ($(SIGN), 1)
 	@echo "Signing binary"
 	@gpg --sign --detach-sign --output mtls-$(UNAME)/mtls.sig mtls-$(UNAME)/mtls
 endif
-	@tar -zcvf mtls-$(UNAME)-$$(git describe --tags `git rev-list --tags --max-count=1`).tar.gz mtls-$(UNAME)
+	@tar -zcvf mtls-$(UNAME)-$$(cat VERSION).tar.gz mtls-$(UNAME)
 
 clean:
 	@rm -r build dist $(PIP_ENV) mtls-$(UNAME)

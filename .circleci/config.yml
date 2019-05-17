@@ -118,7 +118,7 @@ jobs:
             make pkg SIGN=0
       - run:
           name: Move package to dist
-          command: mv "mtls-Linux-*.tar.gz" dist/
+          command: mv "mtls-Linux-$(cat VERSION).tar.gz" dist/
 
   build-package-macos:
     executor: osx
@@ -139,7 +139,7 @@ jobs:
       - run:
           name: Move package to dist
           command: |
-            mv "mtls-Darwin-*.tar.gz" dist/
+            mv "mtls-Darwin-$(cat VERSION).tar.gz" dist/
 
   store-artifacts:
     executor: linux

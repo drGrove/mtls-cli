@@ -85,7 +85,7 @@ jobs:
           name: Lint
           command: make lint
 
-  release-package-linux:
+  build-package-linux:
     executor: linux
     working_directory: ~/mtls-cli
     steps:
@@ -97,7 +97,7 @@ jobs:
           command: make pkg
       - run:
           name: Move package to dist
-          command: mv "mtls-Linux-${CIRCLE_TAG}.tar.gz" dist/
+          command: mv "mtls-Linux-*.tar.gz" dist/
 
   build-package-osx:
     executor: osx
@@ -132,7 +132,8 @@ jobs:
           command: make run-build
       - run:
           name: Move package to dist
-          command: mv "mtls-Darwin-${CIRCLE_TAG}.tar.gz" dist/
+          command: |
+            mv "mtls-Darwin-*.tar.gz" dist/
 
   save-artifacts:
     - store_artifacts:

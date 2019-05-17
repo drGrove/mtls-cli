@@ -230,22 +230,22 @@ workflows:
           <<: *filter_all_tags
           requires:
           - init
-      - test:
-          <<: *filter_all_tags
-          requires:
-          - init
-      - test-macos:
-          <<: *filter_all_tags
-          requires:
-          - init
+      # - test:
+      #     <<: *filter_all_tags
+      #     requires:
+      #     - init
+      # - test-macos:
+      #     <<: *filter_all_tags
+      #     requires:
+      #     - init
       - build-package-linux:
           <<: *filter_all_tags
-          requires:
-          - test
+          # requires:
+          # - test
       - build-package-macos:
           <<: *filter_all_tags
-          requires:
-          - test-macos
+          # requires:
+          # - test-macos
       - store-artifacts:
           <<: *filter_all_tags
           requires:

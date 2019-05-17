@@ -33,7 +33,7 @@ def getListOfFiles(dirName):
 
 
 #logging.disable(logging.CRITICAL)
-MTLS_SERVER_VERSION = os.environ.get('MTLS_SERVER_VERSION') or 'v0.12.0'
+MTLS_SERVER_VERSION = os.environ.get('MTLS_SERVER_VERSION') or 'v0.13.0'
 
 
 def generate_key():

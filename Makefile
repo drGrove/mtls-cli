@@ -29,7 +29,7 @@ set-hooks:
 install: build
 	@mkdir -p $(DESTDIR)
 	@echo "Copying mtls/mtls to $(DESTDIR), Please ensure you have $(DESTDIR) in your PATH"
-	@cp mtls/mtls $(DESTDIR)
+	@cp mtls-$(UNAME)/mtls $(DESTDIR)
 
 lint:
 	@pipenv run pycodestyle --first ./mtls.py

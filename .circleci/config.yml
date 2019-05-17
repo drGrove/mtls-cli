@@ -127,7 +127,7 @@ jobs:
       - store_artifacts:
           path: dist/
 
-  publish-package:
+  publish-packages:
     executor: linux
     working_directory: ~/mtls-cli
     steps:

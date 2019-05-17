@@ -41,7 +41,6 @@ commands:
             brew update
             brew install python3 gnupg || true
 
-
 executors:
   linux:
     docker:
@@ -105,7 +104,6 @@ jobs:
     steps:
       - attach_workspace:
           at: ~/mtls-cli
-
       - pip_install:
           dir: /Users/distiller/.local/share/virtualenvs/
           key: osx
@@ -124,34 +122,34 @@ jobs:
     executor: linux
     working_directory: ~/mtls-cli
     steps:
-    - attach_workspace:
-        at: ~/mtls-cli
-    - store_artifacts:
-        path: dist/
+      - attach_workspace:
+          at: ~/mtls-cli
+      - store_artifacts:
+          path: dist/
 
   publish-package:
     executor: linux
     working_directory: ~/mtls-cli
     steps:
-    - attach_workspace:
-        at: ~/mtls-cli
-    - run:
-        name: Update GO PATHS
-        command: |
-          echo 'export GOROOT=/usr/local/opt/go/libexec' >> $BASH_ENV
-          echo 'export GOPATH=$HOME/gocode' >> $BASH_ENV
-          echo 'export PATH=$PATH:$GOROOT/bin:$GOPATH/bin' >> $BASH_ENV
-    - run:
-        name: Install ghr
-        command: go get -u github.com/tcnksm/ghr
-    - run:
-        name: Upload MacOS Package to GitHub
-        command: |
-          ghr -draft -u mtls-cli $CIRCLE_TAG "dist/mtls-Darwin-${CIRCLE_TAG}.tar.gz"
-    - run:
-        name: Upload Linux Package to GitHub
-        command: |
-          ghr -draft -u mtls-cli $CIRCLE_TAG "dist/mtls-Linux-${CIRCLE_TAG}.tar.gz"
+      - attach_workspace:
+          at: ~/mtls-cli
+      - run:
+          name: Update GO PATHS
+          command: |
+            echo 'export GOROOT=/usr/local/opt/go/libexec' >> $BASH_ENV
+            echo 'export GOPATH=$HOME/gocode' >> $BASH_ENV
+            echo 'export PATH=$PATH:$GOROOT/bin:$GOPATH/bin' >> $BASH_ENV
+      - run:
+          name: Install ghr
+          command: go get -u github.com/tcnksm/ghr
+      - run:
+          name: Upload MacOS Package to GitHub
+          command: |
+            ghr -draft -u mtls-cli $CIRCLE_TAG "dist/mtls-Darwin-${CIRCLE_TAG}.tar.gz"
+      - run:
+          name: Upload Linux Package to GitHub
+          command: |
+            ghr -draft -u mtls-cli $CIRCLE_TAG "dist/mtls-Linux-${CIRCLE_TAG}.tar.gz"
 
   test:
     executor: linux
@@ -219,7 +217,7 @@ workflows:
           <<: *filter_all_tags
           requires:
           - init
-      - test-osx:
+      - test-macos:
           <<: *filter_all_tags
           requires:
           - init

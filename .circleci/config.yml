@@ -19,7 +19,7 @@ commands:
           command: |
             pip install --user pip==18.0
             pip install --user pipenv
-            pipenv install --dev
+            pipenv --three install --dev
           environment:
             PIP_SHIMS_BASE_MODULE: pipenv.patched.notpip
 

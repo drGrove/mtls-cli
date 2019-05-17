@@ -1,5 +1,36 @@
 version: 2.1
 
+commands:
+  pip_install:
+    description: "Install using pipenv and caching."
+    parameters:
+      key:
+        type: string
+        default: linux
+      dir:
+        type: string
+        default: /root/.local/share/virtualenvs/
+    steps:
+      - restore_cache:
+          key: pip-<< parameters.key >>-{{ .Branch }}-{{ checksum "Pipfile" }}-{{ checksum "Pipfile.lock" }}
+
+      - run:
+          name: Pipenv Install
+          command: |
+            pip install -U pip==18.0
+            pip install -U pipenv
+            pipenv run pip install pip==18.0
+            pipenv install --dev
+            . $(pipenv --venv)/bin/activate
+          environment:
+            PIP_SHIMS_BASE_MODULE: pipenv.patched.notpip
+
+      - save_cache:
+          key: pip-<< parameters.key >>-{{ .Branch }}-{{ checksum "Pipfile" }}-{{ checksum "Pipfile.lock" }}
+          paths:
+          - << parameters.dir >>
+
+
 executors:
   linux:
     docker:
@@ -16,18 +47,6 @@ jobs:
     working_directory: ~/mtls-cli
     steps:
       - checkout
-
-      - restore_cache:
-          key: ui-{{ .Branch }}-{{ checksum "mtls-cli/ui/package.json" }}
-
-      - run:
-          name: Build UI
-          command: make build-ui
-
-      - save_cache:
-          key: ui-{{ .Branch }}-{{ checksum "mtls-cli/ui/package.json" }}
-          paths:
-            - "mtls-cli/ui/node_modules"
 
       - persist_to_workspace:
           root: ~/mtls-cli

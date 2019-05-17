@@ -33,7 +33,7 @@ commands:
       - run:
           name: Apt Install
           command: |
-            apt install -y gnupg libnss3 make
+            sudo apt install -y gnupg libnss3 make
   brew:
     description: "Install brew dependencies"
     steps:

@@ -98,7 +98,7 @@ jobs:
           name: Move package to dist
           command: mv "mtls-Linux-*.tar.gz" dist/
 
-  build-package-osx:
+  build-package-macos:
     executor: osx
     working_directory: ~/mtls-cli
     steps:

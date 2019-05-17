@@ -32,15 +32,13 @@ commands:
     steps:
       - run:
           name: Apt Install
-          command: |
-            sudo apt install -y gnupg libnss3 make
+          command: sudo apt install -y gnupg libnss3 make
   brew:
     description: "Install brew dependencies"
     steps:
       - run:
           name: Brew Install
-          command: |
-            brew install python3 gnupg
+          command: brew install python3 gnupg
 
 
 executors:

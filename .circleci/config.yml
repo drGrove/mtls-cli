@@ -1,6 +1,6 @@
 version: 2.1
 
-executor:
+executors:
   linux:
     docker:
       - image: circleci/python:3.7-stretch

@@ -85,7 +85,7 @@ jobs:
           paths:
             - .coveragerc
             - .git/*
-            - mtls-cli/*
+            - mtls/*
             - scripts/*
             - test/*
             - output/*
@@ -119,6 +119,7 @@ jobs:
           name: Package
           command: |
             make pkg SIGN=0
+            mkdir -p output
             mv "mtls-Linux-$(cat VERSION).tar.gz" output/
       - run:
           name: Test Packaged mtls
@@ -130,6 +131,7 @@ jobs:
     steps:
       - attach_workspace:
           at: ~/mtls-cli
+      - brew
       - pip_install:
           dir: /Users/distiller/.local/share/virtualenvs/
           key: osx
@@ -137,6 +139,7 @@ jobs:
           name: Package
           command: |
             make pkg SIGN=0
+            mkdir -p output
             mv "mtls-Darwin-$(cat VERSION).tar.gz" output/
       - run:
           name: Test Packaged mtls
@@ -169,11 +172,11 @@ jobs:
       - run:
           name: Upload MacOS Package to GitHub
           command: |
-            ghr -draft -u mtls-cli $CIRCLE_TAG "dist/mtls-Darwin-${CIRCLE_TAG}.tar.gz"
+            ghr -draft -u mtls-cli $CIRCLE_TAG "output/mtls-Darwin-${CIRCLE_TAG}.tar.gz"
       - run:
           name: Upload Linux Package to GitHub
           command: |
-            ghr -draft -u mtls-cli $CIRCLE_TAG "dist/mtls-Linux-${CIRCLE_TAG}.tar.gz"
+            ghr -draft -u mtls-cli $CIRCLE_TAG "output/mtls-Linux-${CIRCLE_TAG}.tar.gz"
 
   test:
     executor: linux

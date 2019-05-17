@@ -172,7 +172,7 @@ jobs:
           name: Test build
           command: make build
 
-  test-osx:
+  test-macos:
     executor: osx
     working_directory: ~/mtls-cli
     steps:

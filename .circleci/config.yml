@@ -27,13 +27,13 @@ commands:
           - << parameters.dir >>
   test:
     description: "Run Tests"
+    parameters:
+      dir:
+        type: string
+        default: ~/.tmp
     steps:
       - run:
           name: Test
-          parameters:
-            dir:
-              type: string
-              default: ~/.tmp
           command: |
             mkdir -p << parameters.dir >>
             make test

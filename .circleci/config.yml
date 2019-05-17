@@ -118,7 +118,7 @@ jobs:
           command: |
             mv "mtls-Darwin-*.tar.gz" dist/
 
-  save-artifacts:
+  store-artifacts:
     executor: linux
     working_directory: ~/mtls-cli
     steps:

@@ -162,6 +162,8 @@ jobs:
 
       - apt
 
+      - setup_remote_docker
+
       - pip_install
 
       - run:
@@ -184,6 +186,8 @@ jobs:
           at: ~/mtls-cli
 
       - brew
+
+      - setup_remote_docker
 
       - pip_install:
           dir: /Users/distiller/.local/share/virtualenvs/

@@ -11,7 +11,7 @@ a = Analysis(
         '.'
     ],
     binaries=[],
-    datas=[],
+    datas=[('VERSION', 'DATA')],
     hiddenimports=[],
     hookspath=[],
     runtime_hooks=[],

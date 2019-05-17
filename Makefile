@@ -34,6 +34,7 @@ lint:
 	@pipenv run pycodestyle --first ./mtls.py
 
 build: setup
+	@./scripts/get_build_version.sh > VERSION
 	@pipenv run pyinstaller --onefile --distpath=mtls-$(UNAME) mtls.spec
 
 run:

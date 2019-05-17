@@ -25,6 +25,20 @@ commands:
           key: pip-<< parameters.key >>-{{ .Branch }}-{{ checksum "Pipfile" }}-{{ checksum "Pipfile.lock" }}
           paths:
           - << parameters.dir >>
+  test:
+    description: "Run Tests"
+    steps:
+      - run:
+          name: Test
+          parameters:
+            dir:
+              type: string
+              default: ~/.tmp
+          command: |
+            mkdir -p << parameters.dir >>
+            make test
+          environment:
+            TMPDIR: << parameters.dir >>
   apt:
     description: "Install apt dependencies"
     steps:
@@ -165,9 +179,7 @@ jobs:
       - apt
       - setup_remote_docker
       - pip_install
-      - run:
-          name: Run Tests
-          command: make test
+      - test
       - run:
           name: Code Coverage
           command: make coverage
@@ -186,9 +198,7 @@ jobs:
       - pip_install:
           dir: /Users/distiller/.local/share/virtualenvs/
           key: osx
-      - run:
-          name: Run Tests
-          command: make test
+      - test
       - run:
           name: Code Coverage
           command: make coverage

@@ -13,7 +13,6 @@ commands:
     steps:
       - restore_cache:
           key: pip-<< parameters.key >>-{{ .Branch }}-{{ checksum "Pipfile" }}-{{ checksum "Pipfile.lock" }}
-
       - run:
           name: Pipenv Install
           command: |
@@ -22,7 +21,6 @@ commands:
             pipenv --three install --dev
           environment:
             PIP_SHIMS_BASE_MODULE: pipenv.patched.notpip
-
       - save_cache:
           key: pip-<< parameters.key >>-{{ .Branch }}-{{ checksum "Pipfile" }}-{{ checksum "Pipfile.lock" }}
           paths:
@@ -60,9 +58,7 @@ jobs:
     working_directory: ~/mtls-cli
     steps:
       - checkout
-
       - setup_remote_docker
-
       - persist_to_workspace:
           root: ~/mtls-cli
           paths:
@@ -84,9 +80,7 @@ jobs:
     steps:
       - attach_workspace:
           at: ~/mtls-cli
-
       - pip_install
-
       - run:
           name: Lint
           command: make lint
@@ -97,23 +91,15 @@ jobs:
     steps:
       - attach_workspace:
           at: ~/mtls-cli
-
       - pip_install
-
       - run:
           name: Package
           command: make pkg
-
       - run:
-          name: Upload to GitHub
-          command: |
-            ghr -draft -u mtls-cli $CIRCLE_TAG "mtls-Linux-${CIRCLE_TAG}.tar.gz"
-            mv "mtls-Linux-${CIRCLE_TAG}.tar.gz" dist/
+          name: Move package to dist
+          command: mv "mtls-Linux-${CIRCLE_TAG}.tar.gz" dist/
 
-      - store_artifacts:
-          path: dist/
-
-  release-package-osx:
+  build-package-osx:
     executor: osx
     working_directory: ~/mtls-cli
     steps:
@@ -138,23 +124,31 @@ jobs:
       - pip_install:
           dir: /Users/distiller/.local/share/virtualenvs/
           key: osx
-
       - run:
           name: Package
           command: make pkg
-
       - run:
           name: Test Packaged mtls
           command: make run-build
-
       - run:
-          name: Upload to GitHub
-          command: |
-            ghr -draft -u mtls-cli $CIRCLE_TAG "mtls-Darwin-${CIRCLE_TAG}.tar.gz"
-            mv "mtls-Darwin-${CIRCLE_TAG}.tar.gz" dist/
+          name: Move package to dist
+          command: mv "mtls-Darwin-${CIRCLE_TAG}.tar.gz" dist/
 
-      - store_artifacts:
-          path: dist/
+  save-artifacts:
+    - store_artifacts:
+        path: dist/
+
+  publish-package:
+    - attach_workspace:
+        at: ~/mtls-cli
+    - run:
+        name: Upload MacOS Package to GitHub
+        command: |
+          ghr -draft -u mtls-cli $CIRCLE_TAG "dist/mtls-Darwin-${CIRCLE_TAG}.tar.gz"
+    - run:
+        name: Upload Linux Package to GitHub
+        command: |
+          ghr -draft -u mtls-cli $CIRCLE_TAG "dist/mtls-Linux-${CIRCLE_TAG}.tar.gz"
 
   test:
     executor: linux
@@ -162,21 +156,15 @@ jobs:
     steps:
       - attach_workspace:
           at: ~/mtls-cli
-
       - apt
-
       - setup_remote_docker
-
       - pip_install
-
       - run:
           name: Run Tests
           command: make test
-
       - run:
           name: Code Coverage
           command: make coverage
-
       - run:
           name: Test build
           command: make build
@@ -187,23 +175,17 @@ jobs:
     steps:
       - attach_workspace:
           at: ~/mtls-cli
-
       - brew
-
       - setup_remote_docker
-
       - pip_install:
           dir: /Users/distiller/.local/share/virtualenvs/
           key: osx
-
       - run:
           name: Run Tests
           command: make test
-
       - run:
           name: Code Coverage
           command: make coverage
-
       - run:
           name: Test build
           command: make build
@@ -238,11 +220,20 @@ workflows:
           <<: *filter_all_tags
           requires:
           - init
-      - release-package-linux:
-          <<: *filter_only_tags
+      - build-package-linux:
+          <<: *filter_all_tags
           requires:
           - test
-      - release-package-osx:
+      - build-package-macos:
+          <<: *filter_all_tags
+          requires:
+          - test-macos
+      - store-artifacts:
+          <<: *filter_all_tags
+          requires:
+          - build-package-linux
+          - build-package-macos
+      - publish-packages:
           <<: *filter_only_tags
           requires:
-          - test-osx
+          - store-artifacts

@@ -36,6 +36,7 @@ commands:
           name: Test
           command: |
             mkdir -p << parameters.dir >>
+            ls << parameters.dir >>
             make test
           environment:
             TMPDIR: << parameters.dir >>

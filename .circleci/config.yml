@@ -17,9 +17,8 @@ commands:
       - run:
           name: Pipenv Install
           command: |
-            pip install -U pip==18.0
-            pip install -U pipenv
-            pipenv run pip install pip==18.0
+            pip install --user pip==18.0
+            pip install --user pipenv
             pipenv install --dev
             . $(pipenv --venv)/bin/activate
           environment:

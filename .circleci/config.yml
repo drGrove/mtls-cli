@@ -55,7 +55,7 @@ commands:
           command: |
             brew upgrade
             brew update
-            brew install python3 gnupg || true
+            brew install python3 gnupg pipenv || true
 
 executors:
   linux:

@@ -58,6 +58,10 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker
+      - pip_install
+      - run:
+          name: Setup
+          command: make setup
       - persist_to_workspace:
           root: ~/mtls-cli
           paths:
@@ -72,6 +76,7 @@ jobs:
             - requirements.txt
             - Pipfile
             - Pipfile.lock
+            - VERSION
 
   lint:
     executor: linux
@@ -79,7 +84,6 @@ jobs:
     steps:
       - attach_workspace:
           at: ~/mtls-cli
-      - pip_install
       - run:
           name: Lint
           command: make lint

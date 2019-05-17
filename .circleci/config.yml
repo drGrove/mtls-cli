@@ -30,14 +30,14 @@ commands:
   apt:
     description: "Install apt dependencies"
     steps:
-      - install:
+      - run:
           name: Apt Install
           command: |
             apt install -y gnupg nss make
   brew:
     description: "Install brew dependencies"
     steps:
-      - install:
+      - run:
           name: Brew Install
           command: |
             brew install python3 gnupg nss make

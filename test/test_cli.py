@@ -20,6 +20,7 @@ import tempfile
 
 from cli import cli
 
+
 def getListOfFiles(dirName):
     listOfFile = os.listdir(dirName)
     allFiles = list()
@@ -32,7 +33,7 @@ def getListOfFiles(dirName):
     return allFiles
 
 
-#logging.disable(logging.CRITICAL)
+# logging.disable(logging.CRITICAL)
 MTLS_SERVER_VERSION = os.environ.get('MTLS_SERVER_VERSION') or 'v0.13.0'
 
 

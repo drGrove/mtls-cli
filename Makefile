@@ -14,6 +14,7 @@ endif
 setup: set-hooks
 	@pipenv --three install --dev
 	@pipenv run easy_install PyInstaller==3.4
+	@./scripts/get_build_version.sh > VERSION
 
 pipenv-lock:
 	@pipenv update

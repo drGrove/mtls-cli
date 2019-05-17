@@ -38,7 +38,10 @@ commands:
     steps:
       - run:
           name: Brew Install
-          command: brew install python3 gnupg
+          command: |
+            brew upgrade
+            brew update
+            brew install python3 gnupg || true
 
 
 executors:

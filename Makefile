@@ -59,11 +59,7 @@ coveralls:
 
 pkg: build
 	@echo "Generating sha256sum of Binary"
-ifeq ($(UNAME), "Darwin")
 	@shasum -a256 mtls-$(UNAME)/mtls > mtls-$(UNAME)/mtls.sha256sum
-else
-	@sha256sum mtls-$(UNAME)/mtls > mtls-$(UNAME)/mtls.sha256sum
-endif
 ifeq ($(SIGN), 1)
 	@echo "Signing binary"
 	@gpg --sign --detach-sign --output mtls-$(UNAME)/mtls.sig mtls-$(UNAME)/mtls

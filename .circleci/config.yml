@@ -252,4 +252,5 @@ workflows:
       - publish-packages:
           <<: *filter_only_tags
           requires:
-          - store-artifacts
+            - build-package-linux
+            - build-package-macos

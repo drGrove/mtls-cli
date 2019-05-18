@@ -1,0 +1,256 @@
+version: 2.1
+
+commands:
+  pip_install:
+    description: "Install using pipenv and caching."
+    parameters:
+      key:
+        type: string
+        default: linux
+      dir:
+        type: string
+        default: /root/.local/share/virtualenvs/
+    steps:
+      - restore_cache:
+          key: pip-<< parameters.key >>-{{ .Branch }}-{{ checksum "Pipfile" }}-{{ checksum "Pipfile.lock" }}
+      - run:
+          name: Pipenv Install
+          command: |
+            pip install --user pip==18.0
+            pip install --user pipenv
+            pipenv --three install --dev
+          environment:
+            PIP_SHIMS_BASE_MODULE: pipenv.patched.notpip
+      - save_cache:
+          key: pip-<< parameters.key >>-{{ .Branch }}-{{ checksum "Pipfile" }}-{{ checksum "Pipfile.lock" }}
+          paths:
+          - << parameters.dir >>
+  test:
+    description: "Run Tests"
+    parameters:
+      dir:
+        type: string
+        default: ~/mtls-cli/.tmp/
+    steps:
+      - run:
+          name: Test
+          command: |
+            mkdir -p << parameters.dir >>
+            touch << parameters.dir >>/FOO
+            ls << parameters.dir >>
+            make test
+          environment:
+            TMPDIR: << parameters.dir >>
+  apt:
+    description: "Install apt dependencies"
+    steps:
+      - run:
+          name: Apt Install
+          command: sudo apt install -y gnupg libnss3 make golang
+  brew:
+    description: "Install brew dependencies"
+    steps:
+      - run:
+          name: Brew Install
+          command: |
+            brew upgrade
+            brew update
+            brew install python3 gnupg pipenv || true
+
+executors:
+  linux:
+    docker:
+      - image: circleci/python:3.7-stretch
+        environment:
+          PIPENV_VENV_IN_PROJECT: true
+  osx:
+    macos:
+      xcode: "10.0.0"
+
+jobs:
+  init:
+    executor: linux
+    working_directory: ~/mtls-cli
+    steps:
+      - checkout
+      - setup_remote_docker
+      - pip_install
+      - run:
+          name: Setup
+          command: |
+            make setup
+            mkdir output
+      - persist_to_workspace:
+          root: ~/mtls-cli
+          paths:
+            - .coveragerc
+            - .git/*
+            - mtls/*
+            - scripts/*
+            - test/*
+            - output/*
+            - mtls.spec
+            - ./*.py
+            - Makefile
+            - requirements.txt
+            - Pipfile
+            - Pipfile.lock
+            - VERSION
+
+  lint:
+    executor: linux
+    working_directory: ~/mtls-cli
+    steps:
+      - attach_workspace:
+          at: ~/mtls-cli
+      - pip_install
+      - run:
+          name: Lint
+          command: make lint
+
+  build-package-linux:
+    executor: linux
+    working_directory: ~/mtls-cli
+    steps:
+      - attach_workspace:
+          at: ~/mtls-cli
+      - pip_install
+      - run:
+          name: Package
+          command: |
+            make pkg SIGN=0
+            mkdir -p output
+            mv "mtls-Linux-$(cat VERSION).tar.gz" output/
+      - run:
+          name: Test Packaged mtls
+          command: make run-build
+      - store_artifacts:
+          path: output/
+
+  build-package-macos:
+    executor: osx
+    working_directory: ~/mtls-cli
+    steps:
+      - attach_workspace:
+          at: ~/mtls-cli
+      - brew
+      - pip_install:
+          dir: /Users/distiller/.local/share/virtualenvs/
+          key: osx
+      - run:
+          name: Package
+          command: |
+            make pkg SIGN=0
+            mkdir -p output
+            mv "mtls-Darwin-$(cat VERSION).tar.gz" output/
+      - run:
+          name: Test Packaged mtls
+          command: make run-build
+      - store_artifacts:
+          path: output/
+
+  publish-packages:
+    executor: linux
+    working_directory: ~/mtls-cli
+    steps:
+      - attach_workspace:
+          at: ~/mtls-cli
+      - run:
+          name: Update GO PATHS
+          command: |
+            echo 'export GOROOT=/usr/local/opt/go/libexec' >> $BASH_ENV
+            echo 'export GOPATH=$HOME/gocode' >> $BASH_ENV
+            echo 'export PATH=$PATH:$GOROOT/bin:$GOPATH/bin' >> $BASH_ENV
+      - run:
+          name: Install ghr
+          command: go get -u github.com/tcnksm/ghr
+      - run:
+          name: Upload MacOS Package to GitHub
+          command: |
+            ghr -draft -u mtls-cli $CIRCLE_TAG "output/mtls-Darwin-${CIRCLE_TAG}.tar.gz"
+      - run:
+          name: Upload Linux Package to GitHub
+          command: |
+            ghr -draft -u mtls-cli $CIRCLE_TAG "output/mtls-Linux-${CIRCLE_TAG}.tar.gz"
+
+  test:
+    executor: linux
+    working_directory: ~/mtls-cli
+    steps:
+      - attach_workspace:
+          at: ~/mtls-cli
+      - apt
+      - setup_remote_docker
+      - pip_install
+      - test
+      - run:
+          name: Code Coverage
+          command: make coverage
+      - run:
+          name: Test build
+          command: make build
+
+  test-macos:
+    executor: osx
+    working_directory: ~/mtls-cli
+    steps:
+      - attach_workspace:
+          at: ~/mtls-cli
+      - brew
+      - setup_remote_docker
+      - pip_install:
+          dir: /Users/distiller/.local/share/virtualenvs/
+          key: osx
+      - test
+      - run:
+          name: Code Coverage
+          command: make coverage
+      - run:
+          name: Test build
+          command: make build
+
+filter_all_tags: &filter_all_tags
+  filters:
+    tags:
+      only: /.*/
+
+filter_only_tags: &filter_only_tags
+  filters:
+    tags:
+      only: /.*/
+    branches:
+      ignore: /.*/
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      - init:
+          <<: *filter_all_tags
+      - lint:
+          <<: *filter_all_tags
+          requires:
+          - init
+      # - test:
+      #     <<: *filter_all_tags
+      #     requires:
+      #     - init
+      # - test-macos:
+      #     <<: *filter_all_tags
+      #     requires:
+      #     - init
+      - build-package-linux:
+          <<: *filter_all_tags
+          requires:
+            - init
+          # - test
+      - build-package-macos:
+          <<: *filter_all_tags
+          requires:
+            - init
+          # - test-macos
+      - publish-packages:
+          <<: *filter_only_tags
+          requires:
+            - build-package-linux
+            - build-package-macos

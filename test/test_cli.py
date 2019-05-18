@@ -20,6 +20,7 @@ import tempfile
 
 from cli import cli
 
+
 def getListOfFiles(dirName):
     listOfFile = os.listdir(dirName)
     allFiles = list()
@@ -32,8 +33,8 @@ def getListOfFiles(dirName):
     return allFiles
 
 
-#logging.disable(logging.CRITICAL)
-MTLS_SERVER_VERSION = os.environ.get('MTLS_SERVER_VERSION') or 'v0.12.0'
+# logging.disable(logging.CRITICAL)
+MTLS_SERVER_VERSION = os.environ.get('MTLS_SERVER_VERSION') or 'v0.13.0'
 
 
 def generate_key():
@@ -126,7 +127,7 @@ class TestCliBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         TMPDIR_PREFIX = os.environ.get('TMPDIR') or '/tmp/'
-        cls.seed_dir = tempfile.TemporaryDirectory(prefix=TMPDIR_PREFIX)
+        cls.seed_dir = tempfile.TemporaryDirectory(dir=TMPDIR_PREFIX)
         for subpath in ['user', 'admin']:
             os.makedirs(
                 '{base}/{subpath}'.format(
@@ -135,11 +136,11 @@ class TestCliBase(unittest.TestCase):
                 )
             )
         cls.server_config_dir = tempfile.TemporaryDirectory(
-            prefix=TMPDIR_PREFIX
+            dir=TMPDIR_PREFIX
         )
         cls.docker = docker.from_env()
         cls.ADMIN_GNUPGHOME = tempfile.TemporaryDirectory(
-            prefix=TMPDIR_PREFIX
+            dir=TMPDIR_PREFIX
         )
         cls.admin_gpg = gnupg.GPG(gnupghome=cls.ADMIN_GNUPGHOME.name)
         cls.admin = User(
@@ -154,7 +155,7 @@ class TestCliBase(unittest.TestCase):
         )
         with open(file_path, 'w') as f:
             f.write(cls.admin_gpg.export_keys(cls.admin.pgp_key.fingerprint))
-        cls.USER_GNUPGHOME = tempfile.TemporaryDirectory(prefix=TMPDIR_PREFIX)
+        cls.USER_GNUPGHOME = tempfile.TemporaryDirectory(dir=TMPDIR_PREFIX)
         cls.user_gpg = gnupg.GPG(gnupghome=cls.USER_GNUPGHOME.name)
         cls.user = User(
             'test@example.com',
@@ -213,7 +214,7 @@ class TestCliBase(unittest.TestCase):
             remove=True,
             ports={'4000/tcp': 4000}
         )
-        cls.HOME = tempfile.TemporaryDirectory(prefix=TMPDIR_PREFIX)
+        cls.HOME = tempfile.TemporaryDirectory(dir=TMPDIR_PREFIX)
         cls.env = {
             'GNUPGHOME': cls.ADMIN_GNUPGHOME.name,
             'HOME': cls.HOME.name,

@@ -4,11 +4,11 @@ import sys
 
 from mtls import MutualTLS
 
-
-VERSION = 'v0.8.3'
+with open("VERSION") as v:
+    VERSION = v.readline().strip()
 HELP_TEXT = ('mtls is a PGP Web of Trust based SSL Client Certificate '
              'generation tool based on Googles Beyond Corp Zero Trust '
-             'Authentication. Version {}.'.format(VERSION))
+             'Authentication. Version {}'.format(VERSION))
 
 
 @click.group(help=HELP_TEXT)

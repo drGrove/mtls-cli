@@ -11,7 +11,10 @@ a = Analysis(
         '.'
     ],
     binaries=[],
-    datas=[('VERSION', 'DATA')],
+    datas=[
+        ('VERSION', 'DATA'),
+        ('password_word_list', 'DATA')
+    ],
     hiddenimports=[],
     hookspath=[],
     runtime_hooks=[],

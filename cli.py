@@ -29,10 +29,15 @@ HELP_TEXT = ('mtls is a PGP Web of Trust based SSL Client Certificate '
     hidden=True
 )
 @click.pass_context
-def cli(ctx, server, config, gpg_password):
+def cli(
+    ctx,
+    server,
+    config,
+    gpg_password,
+):
     options = {
         'config': config,
-        'gpg_password': gpg_password
+        'gpg_password': gpg_password,
     }
     if server is not None:
         ctx.obj = MutualTLS(server, options)
@@ -53,13 +58,52 @@ def certificate(ctx):
     'create',
     help='Create a Client Certificate for a given server.'
 )
+@click.option(
+    '--output',
+    '-o',
+    help="""
+        Output the pfx file to a location.
+        File will not be added to Certificate Store.
+    """,
+    type=click.Path(exists=False),
+)
+@click.option(
+    '--friendly-name',
+    help='The friendly name of the certificate',
+    type=str,
+)
+@click.option(
+    '--user-email',
+    help='The users email for the certificate',
+    type=str,
+)
+@click.option(
+    '--organization',
+    '-org',
+    help="The users organization",
+    type=str,
+)
 @click.pass_context
-def create_certificate(ctx):
+def create_certificate(
+    ctx,
+    output,
+    friendly_name,
+    user_email,
+    organization,
+):
+    options = {}
     if ctx.obj is None:
         click.secho('A server was not provided.', fg='red')
         sys.exit(1)
+    if friendly_name:
+        options.update(friendly_name=friendly_name)
+    if user_email:
+        options.update(email=user_email)
+    if organization:
+        options.update(organization=organization)
     ctx.obj.get_crl(False)
-    ctx.obj.create_cert()
+    ctx.obj.set_user_options(options)
+    ctx.obj.create_cert(output)
 
 
 @certificate.command(

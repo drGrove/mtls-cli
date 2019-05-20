@@ -114,7 +114,7 @@ class MutualTLS:
 
             return False
 
-    def create_cert(self):
+    def create_cert(self, output):
         self._create_db()
         cert = None
         if not self._has_root_cert():
@@ -174,14 +174,28 @@ class MutualTLS:
         p12.set_certificate(certificate)
         p12.set_friendlyname(bytes(self.friendly_name, 'UTF-8'))
         pwd = self._genPW()
+        if output:
+            self.pfx_path = output
+            pw = self.encrypt(pwd, self.config.get(self.server, 'fingerprint'))
+            pfx_base = "/".join(
+                self.pfx_path.split('/')[:-1]
+            )
+            pw_file = self.pfx_path.split('/')[-1].split('.')[:-1]
+            pw_file += ".password.asc"
+            pw_file = "".join(pw_file)
+            pw_file = "{}/{}".format(pfx_base, pw_file)
+            with open(pw_file, 'wb') as pwfile:
+                click.echo('Writing password to: {}'.format(pw_file))
+                pwfile.write(str(pw).encode('UTF-8'))
         with open(self.pfx_path, 'wb') as f:
-            f.write(p12.export(passphrase=bytes(pwd, 'utf-8')))
-        self.update_cert_storage(
-            self.pfx_path,
-            pwd
-        )
-        self._chrome_notice()
-        self._firefox_notice()
+            f.write(p12.export(passphrase=bytes(pwd, 'UTF-8')))
+        if not output:
+            self.update_cert_storage(
+                self.pfx_path,
+                pwd
+            )
+            self._chrome_notice()
+            self._firefox_notice()
 
     def _chrome_notice(self):
         click.secho(
@@ -436,23 +450,15 @@ class MutualTLS:
                                       default_backend())
 
     def _genPW(self):
-        chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
-        chars += '1234567890'
-        chars += '!@#$%^&*()-_+=|?><,.'
-        pw = ""
-        for c in range(50):
-            pw += random.choice(chars)
-        if len(pw) < 50:
-            click.secho(
-                'Failed to generate appropriate password.',
-                fg='red',
-                bold=True,
-                err=True
-            )
-            sys.exit(1)
-        if re.search('[0-9]+', pw) is None:
-            pw = self._genPW()
-        return pw
+        wordFile = open('password_word_list', 'r')
+        wordList = []
+        for line in wordFile:
+            wordList.append(line.rstrip('\n'))
+        wordFile.close()
+        pw = []
+        for c in range(10):
+            pw.append(random.choice(wordList))
+        return " ".join(pw).rstrip()
 
     def convert_to_cert(self, cert):
         try:
@@ -911,6 +917,16 @@ class MutualTLS:
             ),
             fg='green'
         )
+
+    def set_user_options(self, options):
+        for key in options:
+            self.config.set(self.server, key, options.get(key))
+
+        if options.get('friendly_name'):
+            self.friendly_name = "{org} - {name}".format(
+                org=self.config.get(self.server, 'organization_name'),
+                name=options['friendly_name']
+            )
 
     def get_crl(self, output):
         if not output:

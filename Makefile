@@ -45,10 +45,10 @@ run-build:
 	@./mtls-$(UNAME)/mtls $(ARGS)
 
 test:
-	@$(PIP_ENV)/bin/coverage run -m unittest -v
+	-@$(PIP_ENV)/bin/coverage run -m unittest -v
 
 test-by-name:
-	@$(PIP_ENV)/bin/coverage run -m unittest $(TEST) -v
+	-@$(PIP_ENV)/bin/coverage run -m unittest $(TEST) -v
 
 coverage:
 	@$(PIP_ENV)/bin/coverage report -m

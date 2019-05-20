@@ -451,9 +451,9 @@ class MutualTLS:
 
     def _genPW(self):
         try:
-            wordList = open(os.path.join(sys._MEIPASS, 'password_word_list'))
+            wordFile = open(os.path.join(sys._MEIPASS, 'password_word_list'))
         except AttributeError:
-            wordList = open(
+            wordFile = open(
                 os.path.join(os.path.dirname(__file__), 'password_word_list')
             )
         wordList = []

@@ -456,8 +456,6 @@ class MutualTLS:
             wordList = open(
                 os.path.join(os.path.dirname(__file__), 'password_word_list')
             )
-
-        wordFile = open('password_word_list', 'r')
         wordList = []
         for line in wordFile:
             wordList.append(line.rstrip('\n'))

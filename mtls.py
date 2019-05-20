@@ -450,7 +450,12 @@ class MutualTLS:
                                       default_backend())
 
     def _genPW(self):
-        wordFile = open('password_word_list', 'r')
+        try:
+            wordFile = open(os.path.join(sys._MEIPASS, 'VERSION'))
+        except AttributeError:
+            wordFile = open(
+                os.path.join(os.path.dirname(__file__), 'password_word_file')
+            )
         wordList = []
         for line in wordFile:
             wordList.append(line.rstrip('\n'))

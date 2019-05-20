@@ -93,6 +93,7 @@ jobs:
             - ./*.py
             - Makefile
             - requirements.txt
+            - password_word_list
             - Pipfile
             - Pipfile.lock
             - VERSION

@@ -481,7 +481,13 @@ class MutualTLS:
             )
 
     def _run_cmd(self, args, capture_output=False):
-        return subprocess.run(args, capture_output=capture_output)
+        if capture_output:
+            return subprocess.run(
+                args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+        return subprocess.run(args)
 
     def update_cert_storage(self, cert_file_path, cert_pw):
         if sys.platform == 'linux' or sys.platform == 'linux2':

@@ -1,11 +1,21 @@
-import click
 import datetime
+import os
 import sys
+
+import click
 
 from mtls import MutualTLS
 
-with open("VERSION") as v:
-    VERSION = v.readline().strip()
+import os
+import sys
+
+try:
+    VERSION = open(os.path.join(sys._MEIPASS, 'VERSION')).read().strip()
+except AttributeError:
+    VERSION = open(
+        os.path.join(os.path.dirname(__file__), 'VERSION')
+    ).read().strip()
+
 HELP_TEXT = ('mtls is a PGP Web of Trust based SSL Client Certificate '
              'generation tool based on Googles Beyond Corp Zero Trust '
              'Authentication. Version {}'.format(VERSION))

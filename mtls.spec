@@ -12,8 +12,8 @@ a = Analysis(
     ],
     binaries=[],
     datas=[
-        ('VERSION', 'DATA'),
-        ('password_word_list', 'DATA')
+        ('VERSION', '.'),
+        ('password_word_list', '.')
     ],
     hiddenimports=[],
     hookspath=[],
@@ -41,6 +41,5 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    runtime_tmpdir=None,
     console=True
 )

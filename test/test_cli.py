@@ -1074,3 +1074,83 @@ class TestCliAsUser(TestCliBase):
                 "-----END X509 CRL-----",
                 crl.public_bytes(serialization.Encoding.PEM).decode('UTF-8')
             )
+
+
+class TestCliOptions(TestCliBase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.env = {
+            'GNUPGHOME': cls.USER_GNUPGHOME.name,
+            'HOME': cls.HOME.name,
+            'USER': 'test',
+            'HOST': str(platform.uname()[1])
+        }
+        cls.runner = CliRunner(env=cls.env)
+        cls.config = ConfigParser()
+        cls.config['DEFAULT'] = {
+            'name': 'John Doe',
+            'email': 'johndoe@example.com',
+            'fingerprint': cls.user.pgp_key.fingerprint,
+            'country': 'US',
+            'state': 'CA',
+            'locality': 'Mountain View',
+            'organization_name': 'My Org'
+        }
+        cls.config['test'] = {
+            'lifetime': 60,
+            'url': 'http://localhost:4000',
+        }
+        cls.config_path = os.path.join(
+            cls.HOME.name,
+            'config.ini'
+        )
+        with open(cls.config_path, 'w') as configfile:
+            cls.config.write(configfile)
+
+    def test_add_server(self):
+        server_url = "https://certauth.foo.bar"
+        result = self.runner.invoke(
+            cli,
+            [
+                '-c',
+                self.config_path,
+                'server',
+                'add',
+                'foo'
+            ],
+            input=server_url + '\n'
+        )
+        self.assertEqual(result.exit_code, 0, msg=result.exc_info)
+        config = ConfigParser()
+        config.read(self.config_path)
+        self.assertEqual(config.get('foo', 'url'), server_url)
+
+    def test_remove_server(self):
+        result = self.runner.invoke(cli, [
+            '-c',
+            self.config_path,
+            'server',
+            'remove',
+            'foo'
+        ])
+        self.assertEqual(result.exit_code, 0, msg=result.exc_info)
+        config = ConfigParser()
+        config.read(self.config_path)
+        self.assertFalse(config.has_section('foo'))
+
+    def test_set_user_config(self):
+        result = self.runner.invoke(cli, [
+            '-c',
+            self.config_path,
+            'config',
+            'organization_name',
+            'My New Org'
+        ])
+        self.assertEqual(result.exit_code, 0, msg=result.exc_info)
+        config = ConfigParser()
+        config.read(self.config_path)
+        self.assertEqual(
+            config.get('DEFAULT', 'organization_name'),
+            'My New Org'
+        )

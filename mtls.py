@@ -655,13 +655,18 @@ class MutualTLS:
         config.read(self.config_file_path)
         return config
 
-    def update_config(self):
-        click.secho(
-            'Updating config file settings for {server}'.format(
-                server=self.server
-            ),
-            fg='green'
-        )
+    def update_config_value(self, key, value, namespace="DEFAULT"):
+        config.set(namespace, key, value)
+        self.update_config(show_msg=False)
+
+    def update_config(self, show_msg=True):
+        if show_msg:
+            click.secho(
+                'Updating config file settings for {server}'.format(
+                    server=self.server
+                ),
+                fg='green'
+            )
         with open(self.config_file_path, 'w') as config_file:
             self.config.write(config_file)
 

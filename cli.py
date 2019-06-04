@@ -1,13 +1,12 @@
 import datetime
 import os
 import sys
+from configparser import ConfigParser
 
 import click
 
 from mtls import MutualTLS
 
-import os
-import sys
 
 try:
     VERSION = open(os.path.join(sys._MEIPASS, 'VERSION')).read().strip()
@@ -20,6 +19,11 @@ HELP_TEXT = ('mtls is a PGP Web of Trust based SSL Client Certificate '
              'generation tool based on Googles Beyond Corp Zero Trust '
              'Authentication. Version {}'.format(VERSION))
 
+ALLOWED_KEYS = [
+    'name', 'email', 'host', 'fingerprint', 'country', 'state', 'locality',
+    'common_name', 'organization_name', 'lifetime', 'url'
+]
+
 
 @click.group(help=HELP_TEXT)
 @click.version_option(VERSION, message="%(version)s")
@@ -31,7 +35,8 @@ HELP_TEXT = ('mtls is a PGP Web of Trust based SSL Client Certificate '
 @click.option(
     '--config', '-c',
     type=click.Path(exists=True),
-    help='config file. [~/.config/mtls]'
+    default=os.path.join(os.environ.get('HOME'), '.config/mtls/config.ini'),
+    help='config file. [~/.config/mtls/config.ini]'
 )
 @click.option(
     '--gpg-password',
@@ -51,11 +56,94 @@ def cli(
     }
     if server is not None:
         ctx.obj = MutualTLS(server, options)
+    else:
+        ctx.obj = {
+            'config_path': config,
+            'server': server or 'DEFAULT'
+        }
     if sys.platform == 'win32' or sys.platform == 'cygwin':
         click.secho(
             'Your platform is not currently supported',
             fg='red'
         )
+
+
+@cli.command(help='Manage config')
+@click.argument('key')
+@click.argument('value')
+@click.pass_context
+def config(ctx, key, value):
+    # Deal with not actually instanting the MutualTLS class.
+    try:
+        server = ctx.obj.server or 'DEFAULT'
+        config_path = ctx.obj.config_file_path
+    except Exception as err:
+        server = ctx.obj['server']
+        config_path = ctx.obj['config_path']
+
+    if key not in ALLOWED_KEYS:
+        click.secho(
+            'Your key must be in the allowed keys, available options are: {}'
+            .format(",".join(ALLOWED_KEYS)),
+            fg='red'
+        )
+        sys.exit(1)
+    if server == 'DEFAULT' and key == 'url':
+        click.secho(
+            'url is not a valid config when no server is set',
+            fg='red'
+        )
+        sys.exit(1)
+    config = ConfigParser()
+    config.read(config_path)
+    config.set(server, key, value)
+    with open(config_path, 'w') as config_file:
+        config.write(config_file)
+
+
+@click.group(help='Manage Servers')
+@click.pass_context
+def server(ctx):
+    pass
+
+
+@server.command('add', help="Add a server")
+@click.argument('name')
+@click.pass_context
+def add_server(ctx, name):
+    if name is None or name == "":
+        click.secho('Server name cannot be empty', fg='red')
+    if " " in name:
+        click.secho('Server name cannot have space in it.', fg='red')
+        sys.exit(1)
+    config_path = ctx.obj['config_path']
+    value = click.prompt(
+        'What is the url of the Certificate Authority? (ie. ' +
+        'https://certauth.example.com): '
+    )
+    config = ConfigParser()
+    config.read(config_path)
+    config.add_section(name)
+    config.set(name, 'url', value)
+    with open(config_path, 'w') as config_file:
+        config.write(config_file)
+
+
+@server.command('remove', help="Remove a server")
+@click.argument('name')
+@click.pass_context
+def remove_server(ctx, name):
+    if name is None or name == "":
+        click.secho('Server name cannot be empty', fg='red')
+    if " " in name:
+        click.secho('Server name cannot have space in it.', fg='red')
+        sys.exit(1)
+    config_path = ctx.obj['config_path']
+    config = ConfigParser()
+    config.read(config_path)
+    config.remove_section(name)
+    with open(config_path, 'w') as config_file:
+        config.write(config_file)
 
 
 @click.group(help='Manage Certificates')
@@ -102,7 +190,7 @@ def create_certificate(
     organization,
 ):
     options = {}
-    if ctx.obj is None:
+    if not isinstance(ctx.obj, MutualTLS):
         click.secho('A server was not provided.', fg='red')
         sys.exit(1)
     if friendly_name:
@@ -139,7 +227,7 @@ def create_certificate(
 )
 @click.pass_context
 def revoke_certificate(ctx, fingerprint, serial_number, name):
-    if ctx.obj is None:
+    if not isinstance(ctx.obj, MutualTLS):
         click.secho('A server was not provided.', fg='red')
         sys.exit(1)
     ctx.obj.revoke_cert(fingerprint, serial_number, name)
@@ -156,7 +244,7 @@ def revoke_certificate(ctx, fingerprint, serial_number, name):
 )
 @click.pass_context
 def get_crl(ctx, output):
-    if ctx.obj is None:
+    if not isinstance(ctx.obj, MutualTLS):
         click.secho('A server was not provided.', fg='red')
         sys.exit(1)
     ctx.obj.get_crl(output)
@@ -195,7 +283,7 @@ def user(ctx):
 )
 @click.pass_context
 def add_user(ctx, admin, fingerprint, email, keyserver):
-    if ctx.obj is None:
+    if not isinstance(ctx.obj, MutualTLS):
         click.secho('A server was not provided.', fg='red')
         sys.exit(1)
     if fingerprint is None and email is None:
@@ -233,7 +321,7 @@ def add_user(ctx, admin, fingerprint, email, keyserver):
 )
 @click.pass_context
 def remove_user(ctx, admin, fingerprint, email, keyserver):
-    if ctx.obj is None:
+    if not isinstance(ctx.obj, MutualTLS):
         click.secho('A server was not provided.', fg='red')
         sys.exit(1)
     if fingerprint is None and email is None:
@@ -243,10 +331,6 @@ def remove_user(ctx, admin, fingerprint, email, keyserver):
         fingerprint = handle_email(ctx, email, keyserver)
 
     ctx.obj.remove_user(fingerprint, admin)
-
-
-cli.add_command(certificate)
-cli.add_command(user)
 
 
 def handle_email(ctx, email, keyserver=None):
@@ -277,6 +361,12 @@ def handle_email(ctx, email, keyserver=None):
         click.secho('Invalid number, exiting')
         sys.exit(1)
     return non_expired[value]['keyid']
+
+
+# Bind the subcommands to the cli
+cli.add_command(certificate)
+cli.add_command(user)
+cli.add_command(server)
 
 
 if __name__ == '__main__':

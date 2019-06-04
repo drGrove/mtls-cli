@@ -418,7 +418,6 @@ class MutualTLS:
                 ]
 
             output = self._run_cmd(cmd, capture_output=True)
-            print(output)
             if "CSSMERR_TP_NOT_TRUSTED" in output.stdout.decode('UTF-8'):
                 is_valid = False
             if "CSSMERR_TP_CERT_EXPIRED" in output.stderr.decode('UTF-8'):

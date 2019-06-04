@@ -1,5 +1,6 @@
 """mtls (Mutual TLS) - A cli for creating short-lived client certiicates."""
 
+import binascii
 import os
 import platform
 import random
@@ -128,10 +129,13 @@ class MutualTLS:
              exists,
              revoked) = self.check_valid_cert(name=self.friendly_name)
         if valid is True:
-            click.echo("Reusing valid certificate")
+            click.secho("Reusing valid certificate", fg='green')
             sys.exit(0)
-        if valid is False and exists is True and revoked is True:
-            self.delete_cert_by_name(self.friendly_name)
+        if valid is False and exists is True:
+            if sys.platform == 'darwin':
+                self.delete_cert_by_name(self.friendly_name)
+            else:
+                self.delete_cert_by_name(self.friendly_name)
         if valid is False and revoked is False and exists is True:
             cert = self.get_cert_from_file()
         csr = self.get_csr()
@@ -169,6 +173,9 @@ class MutualTLS:
             sys.exit(1)
         p12 = OpenSSL.crypto.PKCS12()
         pkey = OpenSSL.crypto.PKey.from_cryptography_key(key)
+        fpbytes = cert.fingerprint(hashes.SHA1())
+        fp = binascii.hexlify(fpbytes)
+        self.update_config_value('current_sha', fp.decode('UTF-8'), self.server)
         certificate = OpenSSL.crypto.X509.from_cryptography(cert)
         p12.set_privatekey(pkey)
         p12.set_certificate(certificate)
@@ -258,6 +265,8 @@ class MutualTLS:
                 'add-trusted-cert',
                 '-p',
                 'ssl',
+                '-r',
+                'trustAsRoot',
                 ca_cert_file_path
             ]
             import_keychain = [
@@ -271,7 +280,7 @@ class MutualTLS:
             ]
             for cmd in cmds:
                 try:
-                    self._run_cmd(cmd, capture_output=True)
+                    output = self._run_cmd(cmd, capture_output=True)
                 except Exception as e:
                     click.echo("Error")
                     click.echo(e)
@@ -299,21 +308,28 @@ class MutualTLS:
 
     def delete_cert_by_name(self, name):
         paths = self._get_certdb_paths()
-        click.secho(
-            'Deleting invalid/expired certificates for {}'.format(name),
-            fg='yellow'
-        )
         if sys.platform == 'darwin':
+            fingerprint = self.config.get(self.server, 'current_sha')
+            click.secho(
+                'Deleting invalid/expired certificates for {}'.format(
+                    fingerprint
+                ),
+                fg='yellow'
+            )
             delete_identity_cmd = [
                 'security',
                 'delete-identity',
-                '-c',
-                name
+                '-Z',
+                fingerprint
             ]
             output = self._run_cmd(delete_identity_cmd, capture_output=True)
             # Override path to just be firefox on darwin for the next command
             paths = self._firefox_certdb_location()
         if sys.platform in ['linux', 'linux2', 'darwin']:
+            click.secho(
+                'Deleting invalid/expired certificates for {}'.format(name),
+                fg='yellow'
+            )
             for path in paths:
                 cmd = [
                     'certutil',
@@ -382,12 +398,10 @@ class MutualTLS:
                     'find-identity',
                     '-p',
                     'ssl-client',
-                    '-v',
+                    '-v'
                 ], capture_output=True)
-                if self.friendly_name not in str(
-                    find_cert_output.stdout,
-                    'UTF-8'
-                ):
+                stdout_str = find_cert_output.stdout.decode('UTF-8')
+                if self.friendly_name not in stdout_str:
                     return is_valid, cert_exists, revoked
                 if "The specified item could not be found" in str(
                     find_cert_output.stderr,
@@ -404,9 +418,10 @@ class MutualTLS:
                 ]
 
             output = self._run_cmd(cmd, capture_output=True)
-            if "CSSMERR_TP_NOT_TRUSTED" in str(output.stdout, 'UTF-8'):
+            print(output)
+            if "CSSMERR_TP_NOT_TRUSTED" in output.stdout.decode('UTF-8'):
                 is_valid = False
-            if "CSSMERR_TP_CERT_EXPIRED" in str(output.stderr, 'UTF-8'):
+            if "CSSMERR_TP_CERT_EXPIRED" in output.stderr.decode('UTF-8'):
                 is_valid = False
         elif sys.platform == 'linux' or sys.platform == 'linux2':
             for path in paths:
@@ -526,6 +541,7 @@ class MutualTLS:
                     cert_file_path,
                     '-f',
                     'pkcs12',
+                    '-x',
                     '-P',
                     cert_pw
                 ], capture_output=True)
@@ -656,7 +672,7 @@ class MutualTLS:
         return config
 
     def update_config_value(self, key, value, namespace="DEFAULT"):
-        config.set(namespace, key, value)
+        self.config.set(namespace, key, value)
         self.update_config(show_msg=False)
 
     def update_config(self, show_msg=True):

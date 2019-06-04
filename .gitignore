@@ -7,3 +7,4 @@ build
 .coverage
 __pycache__
 *.tar.gz
+.DS_Store

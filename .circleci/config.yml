@@ -30,7 +30,7 @@ commands:
     parameters:
       dir:
         type: string
-        default: ~/mtls-cli/.tmp/
+        default: /tmp/
     steps:
       - run:
           name: Test
@@ -244,14 +244,14 @@ workflows:
           <<: *filter_all_tags
           requires:
             - init
-          # - test
+          - test
       - build-package-macos:
           <<: *filter_all_tags
           requires:
             - init
-          # - test-macos
-      - publish-packages:
-          <<: *filter_only_tags
-          requires:
-            - build-package-linux
-            - build-package-macos
+          - test-macos
+      # - publish-packages:
+      #     <<: *filter_only_tags
+      #     requires:
+      #       - build-package-linux
+      #       - build-package-macos

@@ -244,12 +244,12 @@ workflows:
           <<: *filter_all_tags
           requires:
             - init
-          - test
+            - test
       - build-package-macos:
           <<: *filter_all_tags
           requires:
             - init
-          - test-macos
+            - test-macos
       # - publish-packages:
       #     <<: *filter_only_tags
       #     requires:

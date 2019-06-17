@@ -175,7 +175,11 @@ class MutualTLS:
         pkey = OpenSSL.crypto.PKey.from_cryptography_key(key)
         fpbytes = cert.fingerprint(hashes.SHA1())
         fp = binascii.hexlify(fpbytes)
-        self.update_config_value('current_sha', fp.decode('UTF-8'), self.server)
+        self.update_config_value(
+            'current_sha',
+            fp.decode('UTF-8'),
+            self.server
+        )
         certificate = OpenSSL.crypto.X509.from_cryptography(cert)
         p12.set_privatekey(pkey)
         p12.set_certificate(certificate)

@@ -232,14 +232,14 @@ workflows:
           <<: *filter_all_tags
           requires:
           - init
-      # - test:
-      #     <<: *filter_all_tags
-      #     requires:
-      #     - init
-      # - test-macos:
-      #     <<: *filter_all_tags
-      #     requires:
-      #     - init
+      - test:
+          <<: *filter_all_tags
+          requires:
+          - init
+      - test-macos:
+          <<: *filter_all_tags
+          requires:
+          - init
       - build-package-linux:
           <<: *filter_all_tags
           requires:

@@ -36,7 +36,7 @@ lint:
 
 build: setup
 	@./scripts/get_build_version.sh > VERSION
-	@pipenv run pyinstaller --onefile --distpath=mtls-$(UNAME) mtls.spec
+	@pipenv run pyinstaller --onefile --distpath=mtls-$(UNAME) --runtime-tmpdir=/tmp/ mtls.spec
 
 run:
 	@$(PIP_ENV)/bin/python3 cli.py $(ARGS)

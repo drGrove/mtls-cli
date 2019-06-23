@@ -1,5 +1,7 @@
-VERSION
-env
+*.egg-info/
+/.eggs/
+/build/
+/dist/
 *.pyc
 mtls-*
 build

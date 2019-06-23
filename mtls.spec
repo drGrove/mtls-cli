@@ -5,15 +5,14 @@ block_cipher = None
 import PyInstaller.config
 
 a = Analysis(
-    ['cli.py', 'mtls.py'],
+    ['mtls/cli.py', 'mtls/mtls.py'],
     pathex=[
         './env/lib/python3.7/site-packages',
-        '.'
+        'mtls'
     ],
     binaries=[],
     datas=[
-        ('VERSION', '.'),
-        ('password_word_list', 'share')
+        ('share/password_word_list', '.')
     ],
     hiddenimports=[],
     hookspath=[],

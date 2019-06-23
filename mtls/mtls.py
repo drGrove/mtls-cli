@@ -20,7 +20,6 @@ from cryptography.x509.oid import NameOID
 
 import OpenSSL
 import click
-import distro
 import gnupg
 import json
 import requests

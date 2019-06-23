@@ -13,7 +13,7 @@ a = Analysis(
     binaries=[],
     datas=[
         ('VERSION', '.'),
-        ('password_word_list', '.')
+        ('password_word_list', 'share')
     ],
     hiddenimports=[],
     hookspath=[],

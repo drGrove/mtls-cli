@@ -20,7 +20,7 @@ import docker
 import gnupg
 import tempfile
 
-from cli import cli
+from mtls.cli import cli
 
 
 def getListOfFiles(dirName):

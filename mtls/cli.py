@@ -5,14 +5,14 @@ from configparser import ConfigParser
 
 import click
 
-from mtls import MutualTLS
+from .mtls import MutualTLS
 
 
 try:
     VERSION = open(os.path.join(sys._MEIPASS, 'VERSION')).read().strip()
 except AttributeError:
     VERSION = open(
-        os.path.join(os.path.dirname(__file__), 'VERSION')
+        os.path.join(os.path.dirname(__file__), '../VERSION')
     ).read().strip()
 
 HELP_TEXT = ('mtls is a PGP Web of Trust based SSL Client Certificate '

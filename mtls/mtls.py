@@ -468,7 +468,10 @@ class MutualTLS:
             wordFile = open(os.path.join(sys._MEIPASS, 'password_word_list'))
         except AttributeError:
             wordFile = open(
-                os.path.join(os.path.dirname(__file__), 'password_word_list')
+                os.path.join(
+                    os.path.dirname(__file__),
+                    '../share/password_word_list'
+                )
             )
         wordList = []
         for line in wordFile:

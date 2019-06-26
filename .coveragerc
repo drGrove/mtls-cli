@@ -10,3 +10,5 @@ omit =
     */.local/*
     # omit everything in /usr
     /usr/*
+    # omit venv
+    .venv/*

@@ -40,8 +40,14 @@ format:
 lint:
 	@pipenv run pycodestyle ./mtls/*.py
 
-build-pyinstaller-binary: setup
+build-develop:
+	@pipenv run python setup.py develop
+
+build-pyinstaller-binary:
 	@pipenv run pyinstaller --onefile --distpath=mtls-$(UNAME) mtls.spec
+
+build-pypi:
+	@pipenv run python setup.py sdist bdist_wheel
 
 build: setup
 	@pipenv run python setup.py build

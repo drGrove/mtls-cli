@@ -133,6 +133,7 @@ class TestCliBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         TMPDIR_PREFIX = os.environ.get("TMPDIR") or "/tmp/"
+        TMPDIR_PREFIX = os.path.expanduser(TMPDIR_PREFIX)
         VERBOSE_GPG = os.environ.get("DEBUG_GNUPG") or False
         cls.seed_dir = tempfile.TemporaryDirectory(dir=TMPDIR_PREFIX)
         for subpath in ["user", "admin"]:

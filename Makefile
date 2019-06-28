@@ -80,8 +80,8 @@ ifeq ($(SIGN), 1)
 endif
 	@tar -zcvf mtls-$(UNAME)-$$(cat VERSION).tar.gz mtls-$(UNAME)
 
-pkg-pypy: build
-	@pipenv run pythion setup.py sdist bdist_wheel
+pkg-pypi: build
+	@pipenv run python setup.py sdist bdist_wheel
 
 clean:
 	@rm -r build dist $(PIP_ENV) mtls-$(UNAME)

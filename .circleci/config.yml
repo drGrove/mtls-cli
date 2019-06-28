@@ -94,7 +94,7 @@ jobs:
             - build/*
             - dist/*
             - mtls.spec
-            - mtls/*
+            - mtls/**/*
             - output/*
             - password_word_list
             - requirements.txt

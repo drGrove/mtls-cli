@@ -433,7 +433,11 @@ class MutualTLS:
         if not os.path.isfile(csr_path) or self.override:
             return None
         click.echo("Decrypting CSR...")
-        csr_str = self.decrypt(open(csr_path, "rb"))
+        try:
+            csr_str = self.decrypt(open(csr_path, "rb"))
+        except GPGDecryptionException:
+            click.secho("Failed to decrypt CSR, invalid password.", fg="red")
+            sys.exit(1)
         return x509.load_pem_x509_csr(
             bytes(csr_str, "utf-8"), default_backend()
         )
@@ -670,7 +674,13 @@ class MutualTLS:
         )
         if os.path.isfile(key_path):
             click.echo("Decrypting User Key...")
-            key_data = self.decrypt(open(key_path, "rb"))
+            try:
+                key_data = self.decrypt(open(key_path, "rb"))
+            except GPGDecryptionException:
+                click.secho(
+                    "Failed to decrypt user key. Invalid password", fg="red"
+                )
+                sys.exit(1)
             byte_key_data = bytes(str(key_data), "utf-8")
             key = serialization.load_pem_private_key(
                 byte_key_data, password=None, backend=default_backend()

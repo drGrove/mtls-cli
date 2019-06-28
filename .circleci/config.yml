@@ -33,12 +33,13 @@ commands:
         default: ~/mtls-cli/.tmp/
     steps:
       - run:
+          name: Setup
+          command: mkdir -p << parameters.dir >>
+          environment:
+            TMPDIR: << parameters.dir >>
+      - run:
           name: Test
-          command: |
-            mkdir -p << parameters.dir >>
-            touch << parameters.dir >>/FOO
-            ls << parameters.dir >>
-            make test
+          command: make test
           environment:
             TMPDIR: << parameters.dir >>
   apt:
@@ -85,18 +86,21 @@ jobs:
           paths:
             - .coveragerc
             - .git/*
-            - mtls/*
-            - scripts/*
-            - test/*
-            - output/*
-            - mtls.spec
-            - ./*.py
+            - .tmp/*
             - Makefile
-            - requirements.txt
-            - password_word_list
             - Pipfile
             - Pipfile.lock
-            - VERSION
+            - README.md
+            - build/*
+            - dist/*
+            - mtls.spec
+            - mtls/*
+            - output/*
+            - password_word_list
+            - requirements.txt
+            - scripts/*
+            - setup.py
+            - test/*
 
   lint:
     executor: linux
@@ -150,29 +154,21 @@ jobs:
       - store_artifacts:
           path: output/
 
-  publish-packages:
+  build-package-pypi:
     executor: linux
     working_directory: ~/mtls-cli
     steps:
       - attach_workspace:
           at: ~/mtls-cli
+      - pip_install
       - run:
-          name: Update GO PATHS
-          command: |
-            echo 'export GOROOT=/usr/local/opt/go/libexec' >> $BASH_ENV
-            echo 'export GOPATH=$HOME/gocode' >> $BASH_ENV
-            echo 'export PATH=$PATH:$GOROOT/bin:$GOPATH/bin' >> $BASH_ENV
+          name: Update requirements.txt
+          command: pipenv lock -r > requirements.txt
       - run:
-          name: Install ghr
-          command: go get -u github.com/tcnksm/ghr
-      - run:
-          name: Upload MacOS Package to GitHub
-          command: |
-            ghr -draft -u mtls-cli $CIRCLE_TAG "output/mtls-Darwin-${CIRCLE_TAG}.tar.gz"
-      - run:
-          name: Upload Linux Package to GitHub
-          command: |
-            ghr -draft -u mtls-cli $CIRCLE_TAG "output/mtls-Linux-${CIRCLE_TAG}.tar.gz"
+          name: Create Distribution
+          command: pipenv run python setup.py sdist bdist_wheel
+      - store_artifacts:
+          path: dist/
 
   test:
     executor: linux
@@ -241,16 +237,16 @@ workflows:
       #     requires:
       #     - init
       - build-package-linux:
-          <<: *filter_all_tags
+          <<: *filter_only_tags
           requires:
-            - init
-          # - test
+            - lint
+            # - test
       - build-package-macos:
-          <<: *filter_all_tags
+          <<: *filter_only_tags
           requires:
-            - init
-          # - test-macos
-      - publish-packages:
+            - lint
+            # - test-macos
+      - build-package-pypi:
           <<: *filter_only_tags
           requires:
             - build-package-linux

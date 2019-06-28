@@ -11,10 +11,12 @@ else
     UNAME := $(shell uname -s)
 endif
 
+shell:
+	@pipenv shell
+
 setup: set-hooks
 	@pipenv --three install --dev
 	@pipenv run easy_install PyInstaller==3.4
-	@./scripts/get_build_version.sh > VERSION
 
 pipenv-lock:
 	@pipenv update
@@ -31,12 +33,24 @@ install: build
 	@echo "Copying mtls/mtls to $(DESTDIR), Please ensure you have $(DESTDIR) in your PATH"
 	@cp mtls-$(UNAME)/mtls $(DESTDIR)
 
+format:
+	@pipenv run black -l 79 ./mtls/*.py
+	@pipenv run black -l 79 ./test/*.py
+
 lint:
-	@pipenv run pycodestyle --first ./mtls.py
+	@pipenv run pycodestyle ./mtls/*.py
+
+build-develop:
+	@pipenv run python setup.py develop
+
+build-pyinstaller-binary:
+	@pipenv run pyinstaller --onefile --distpath=mtls-$(UNAME) mtls.spec
+
+build-pypi:
+	@pipenv run python setup.py sdist bdist_wheel
 
 build: setup
-	@./scripts/get_build_version.sh > VERSION
-	@pipenv run pyinstaller --onefile --distpath=mtls-$(UNAME) mtls.spec
+	@pipenv run python setup.py build
 
 run:
 	@$(PIP_ENV)/bin/python3 cli.py $(ARGS)
@@ -44,7 +58,7 @@ run:
 run-build:
 	@./mtls-$(UNAME)/mtls $(ARGS)
 
-test:
+test: setup
 	-@$(PIP_ENV)/bin/coverage run -m unittest -v
 
 test-by-name:

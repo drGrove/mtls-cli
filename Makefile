@@ -58,7 +58,7 @@ run:
 run-build:
 	@./mtls-$(UNAME)/mtls $(ARGS)
 
-test:
+test: setup
 	-@$(PIP_ENV)/bin/coverage run -m unittest -v
 
 test-by-name:

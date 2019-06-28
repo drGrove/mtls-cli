@@ -71,7 +71,7 @@ coveralls:
 	@$(PIP_ENV)/bin/coveralls
 
 
-pkg: build
+pkg: build-pyinstaller-binary
 	@echo "Generating sha256sum of Binary"
 	@shasum -a256 mtls-$(UNAME)/mtls > mtls-$(UNAME)/mtls.sha256sum
 ifeq ($(SIGN), 1)
@@ -79,6 +79,9 @@ ifeq ($(SIGN), 1)
 	@gpg --sign --detach-sign --output mtls-$(UNAME)/mtls.sig mtls-$(UNAME)/mtls
 endif
 	@tar -zcvf mtls-$(UNAME)-$$(cat VERSION).tar.gz mtls-$(UNAME)
+
+pkg-pypy: build
+	@pipenv run pythion setup.py sdist bdist_wheel
 
 clean:
 	@rm -r build dist $(PIP_ENV) mtls-$(UNAME)

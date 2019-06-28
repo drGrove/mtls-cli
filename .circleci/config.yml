@@ -166,7 +166,7 @@ jobs:
           command: pipenv lock -r > requirements.txt
       - run:
           name: Create Distribution
-          command: pipenv run python setup.py sdist bdist_wheel
+          command: make pgk-pypy
       - store_artifacts:
           path: dist/
 

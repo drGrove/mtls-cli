@@ -38,7 +38,7 @@ format:
 	@pipenv run black -l 79 ./test/*.py
 
 lint:
-	@pipenv run pycodestyle ./mtls/*.py
+	@pipenv run pycodestyle **/*.py
 
 build-develop:
 	@pipenv run python setup.py develop

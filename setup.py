@@ -1,10 +1,12 @@
 from setuptools import setup, find_packages
 
+desc = "A short-lived certificate tool based on the Zero Trust network mode"
+
 setup(
     name="mtls",
     author="Danny Grove <danny@drgrovellc.com>",
     url="https://github.com/drGrove/mtls-cli",
-    description="A short-lived certificate tool based on the Zero Trust network mode",
+    description=desc,
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     project_urls={

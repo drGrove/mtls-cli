@@ -4,7 +4,7 @@ PIP_ENV:=$(shell pipenv --venv)
 ROOT_DIR:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 DESTDIR ?= ~/.local/bin/
 SIGN := 1
-VERSION := $(shell $(PIPENV)/bin/python3 setup.py --version)
+VERSION := $(shell $$(PIPENV)/bin/python3 setup.py --version)
 
 ifeq ($(OS),Windows_NT)
     UNAME := Windows

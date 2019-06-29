@@ -4,7 +4,7 @@ PIP_ENV:=$(shell pipenv --venv)
 ROOT_DIR:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 DESTDIR ?= ~/.local/bin/
 SIGN := 1
-VERSION := $(shell $$(PIPENV)/bin/python3 setup.py --version)
+VERSION := $(shell pipenv run python3 setup.py --version)
 
 ifeq ($(OS),Windows_NT)
     UNAME := Windows
@@ -54,7 +54,7 @@ build: setup
 	@pipenv run python setup.py build
 
 run:
-	@$(PIP_ENV)/bin/python3 cli.py $(ARGS)
+	@pipenv run python3 bin/mtls $(ARGS)
 
 run-build:
 	@./mtls-$(UNAME)/mtls $(ARGS)
@@ -79,7 +79,7 @@ ifeq ($(SIGN), 1)
 	@echo "Signing binary"
 	@gpg --sign --detach-sign --output mtls-$(UNAME)/mtls.sig mtls-$(UNAME)/mtls
 endif
-	tar -zcvf mtls-$(UNAME)-$(VERSION).tar.gz mtls-$(UNAME)
+	@tar -zcvf mtls-$(UNAME)-$(VERSION).tar.gz mtls-$(UNAME)
 
 pkg-pypi: build
 	@pipenv run python setup.py sdist bdist_wheel

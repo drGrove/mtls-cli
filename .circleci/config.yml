@@ -87,7 +87,7 @@ jobs:
             - .coveragerc
             - .git/*
             - .tmp/*
-            - bin
+            - bin/*
             - Makefile
             - Pipfile
             - Pipfile.lock

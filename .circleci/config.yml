@@ -80,7 +80,6 @@ jobs:
           name: Setup
           command: |
             make setup
-            mkdir output
       - persist_to_workspace:
           root: ~/mtls-cli
           paths:
@@ -94,9 +93,7 @@ jobs:
             - README.md
             - build/*
             - dist/*
-            - mtls.spec
             - mtls/**/*
-            - output/*
             - password_word_list
             - requirements.txt
             - scripts/*
@@ -114,47 +111,6 @@ jobs:
           name: Lint
           command: make lint
 
-  build-package-linux:
-    executor: linux
-    working_directory: ~/mtls-cli
-    steps:
-      - attach_workspace:
-          at: ~/mtls-cli
-      - pip_install
-      - run:
-          name: Package
-          command: |
-            make pkg SIGN=0
-            mkdir -p output
-            mv "mtls-Linux-$(python3 setup.py --version).tar.gz" output/
-      - run:
-          name: Test Packaged mtls
-          command: make run-build
-      - store_artifacts:
-          path: output/
-
-  build-package-macos:
-    executor: osx
-    working_directory: ~/mtls-cli
-    steps:
-      - attach_workspace:
-          at: ~/mtls-cli
-      - brew
-      - pip_install:
-          dir: /Users/distiller/.local/share/virtualenvs/
-          key: osx
-      - run:
-          name: Package
-          command: |
-            make pkg SIGN=0
-            mkdir -p output
-            mv "mtls-Darwin-$(python3 setup.py --version).tar.gz" output/
-      - run:
-          name: Test Packaged mtls
-          command: make run-build
-      - store_artifacts:
-          path: output/
-
   build-package-pypi:
     executor: linux
     working_directory: ~/mtls-cli
@@ -167,7 +123,7 @@ jobs:
           command: pipenv lock -r > requirements.txt
       - run:
           name: Create Distribution
-          command: make pgk-pypy
+          command: make pkg-pypi
       - store_artifacts:
           path: dist/
 
@@ -237,18 +193,6 @@ workflows:
       #     <<: *filter_all_tags
       #     requires:
       #     - init
-      - build-package-linux:
-          <<: *filter_all_tags
-          requires:
-            - lint
-            # - test
-      - build-package-macos:
-          <<: *filter_all_tags
-          requires:
-            - lint
-            # - test-macos
       - build-package-pypi:
-          <<: *filter_only_tags
-          requires:
-            - build-package-linux
-            - build-package-macos
+          <<: *filter_all_tags
+            - lint

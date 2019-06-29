@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "457ea68ddabd15995f13ab00a9fdb40d7a1b5f0d0048b317440f301e335acd94"
+            "sha256": "0ba45462934bad1207bec9734f0cf9e1e13ecb8cb5c56cea30f0d72f98e4c010"
         },
         "pipfile-spec": 6,
         "requires": {},
@@ -163,13 +163,6 @@
         }
     },
     "develop": {
-        "altgraph": {
-            "hashes": [
-                "sha256:d6814989f242b2b43025cba7161fc1b8fb487a62cd49c49245d6fd01c18ac997",
-                "sha256:ddf5320017147ba7b810198e0b6619bd7b5563aa034da388cea8546b877f9b0c"
-            ],
-            "version": "==0.16.1"
-        },
         "appdirs": {
             "hashes": [
                 "sha256:9e5896d1372858f8dd3344faf4e5014d21849c756c8d5701f78f8a103b372d92",
@@ -280,31 +273,12 @@
             ],
             "version": "==0.6.2"
         },
-        "future": {
-            "hashes": [
-                "sha256:67045236dcfd6816dc439556d009594abf643e5eb48992e36beac09c2ca659b8"
-            ],
-            "version": "==0.17.1"
-        },
         "idna": {
             "hashes": [
                 "sha256:c357b3f628cf53ae2c4c05627ecc484553142ca23264e593d327bcde5e9c3407",
                 "sha256:ea8b7f6188e6fa117537c3df7da9fc686d485087abf6ac197f9c46432f7e4a3c"
             ],
             "version": "==2.8"
-        },
-        "macholib": {
-            "hashes": [
-                "sha256:ac02d29898cf66f27510d8f39e9112ae00590adb4a48ec57b25028d6962b1ae1",
-                "sha256:c4180ffc6f909bf8db6cd81cff4b6f601d575568f4d5dee148c830e9851eb9db"
-            ],
-            "version": "==1.11"
-        },
-        "pefile": {
-            "hashes": [
-                "sha256:a5d6e8305c6b210849b47a6174ddf9c452b2888340b8177874b862ba6c207645"
-            ],
-            "version": "==2019.4.18"
         },
         "pycodestyle": {
             "hashes": [
@@ -313,13 +287,6 @@
             ],
             "index": "pypi",
             "version": "==2.4.0"
-        },
-        "pyinstaller": {
-            "hashes": [
-                "sha256:a5a6e04a66abfcf8761e89a2ebad937919c6be33a7b8963e1a961b55cb35986b"
-            ],
-            "index": "pypi",
-            "version": "==3.4"
         },
         "requests": {
             "hashes": [

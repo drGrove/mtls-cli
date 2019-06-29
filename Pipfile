@@ -4,7 +4,6 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
-PyInstaller = "==3.4"
 black = "==19.3b0"
 pycodestyle = "==2.5.0"
 coverage = "==4.5.2"

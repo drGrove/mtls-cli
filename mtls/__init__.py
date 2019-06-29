@@ -3,9 +3,6 @@ import sys
 
 from pkg_resources import get_distribution, DistributionNotFound
 
-from .cli import cli
-from .mtls import MutualTLS
-
 __author__ = "Danny Grove <danny@drgrovellc.com>"
 
 # Allows "import mtls" and "from mtls import <name>".
@@ -15,3 +12,6 @@ try:
     __version__ = get_distribution(__name__).version
 except DistributionNotFound:
     __version__ = "dev"
+
+from .cli import cli  # noqa
+from .mtls import MutualTLS  # noqa

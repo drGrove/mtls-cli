@@ -238,12 +238,12 @@ workflows:
       #     requires:
       #     - init
       - build-package-linux:
-          <<: *filter_only_tags
+          <<: *filter_all_tags
           requires:
             - lint
             # - test
       - build-package-macos:
-          <<: *filter_only_tags
+          <<: *filter_all_tags
           requires:
             - lint
             # - test-macos

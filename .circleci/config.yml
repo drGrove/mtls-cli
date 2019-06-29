@@ -184,7 +184,7 @@ workflows:
       - lint:
           <<: *filter_all_tags
           requires:
-          - init
+            - init
       # - test:
       #     <<: *filter_all_tags
       #     requires:
@@ -195,4 +195,5 @@ workflows:
       #     - init
       - build-package-pypi:
           <<: *filter_all_tags
+          requires:
             - lint

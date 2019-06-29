@@ -126,7 +126,7 @@ jobs:
           command: |
             make pkg SIGN=0
             mkdir -p output
-            mv "mtls-Linux-$(cat VERSION).tar.gz" output/
+            mv "mtls-Linux-$(python3 setup.py --version).tar.gz" output/
       - run:
           name: Test Packaged mtls
           command: make run-build
@@ -148,7 +148,7 @@ jobs:
           command: |
             make pkg SIGN=0
             mkdir -p output
-            mv "mtls-Darwin-$(cat VERSION).tar.gz" output/
+            mv "mtls-Darwin-$(python3 setup.py --version).tar.gz" output/
       - run:
           name: Test Packaged mtls
           command: make run-build

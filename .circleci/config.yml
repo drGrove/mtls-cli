@@ -16,9 +16,9 @@ commands:
       - run:
           name: Pipenv Install
           command: |
-            pip install --user pip==18.0
-            pip install --user pipenv
-            pipenv --three install --dev
+            python -m pip install --user pip==18.0
+            python -m pip install --user pipenv
+            python -m pipenv --three install --dev
           environment:
             PIP_SHIMS_BASE_MODULE: pipenv.patched.notpip
       - save_cache:
@@ -123,7 +123,7 @@ jobs:
           command: pipenv lock -r > requirements.txt
       - run:
           name: Create Distribution
-          command: make pkg-pypi
+          command: make pkg
       - store_artifacts:
           path: dist/
 

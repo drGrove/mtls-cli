@@ -132,7 +132,7 @@ class User:
 class TestCliBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        TMPDIR_PREFIX = os.environ.get("TMPDIR") or "/tmp/"
+        TMPDIR_PREFIX = os.environ.get("TMP_DIR") or "/tmp/"
         TMPDIR_PREFIX = os.path.expanduser(TMPDIR_PREFIX)
         VERBOSE_GPG = os.environ.get("DEBUG_GNUPG") or False
         cls.seed_dir = tempfile.TemporaryDirectory(dir=TMPDIR_PREFIX)
@@ -530,7 +530,7 @@ class TestCliAsAdmin(TestCliBase):
                 "add",
                 "--admin",
                 "--keyserver",
-                "keyserver.ubuntu.com",
+                "keys.openpgp.org",
                 "--email",
                 "danny@drgrovellc.com",
             ],

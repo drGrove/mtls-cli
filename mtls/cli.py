@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-import datetime
 import os
 import sys
 from configparser import ConfigParser
+from datetime import datetime
 
 import click
 
@@ -245,7 +245,7 @@ def add_user(ctx, admin, fingerprint, email, keyserver):
         click.secho("A server was not provided.", fg="red")
         sys.exit(1)
     if fingerprint is None and email is None:
-        click.echo("A fingerprint must be provided")
+        click.echo("A fingerprint or email must be provided")
         sys.exit(1)
     if email is not None:
         fingerprint = handle_email(ctx, email, keyserver)
@@ -288,12 +288,11 @@ def handle_email(ctx, email, keyserver=None):
         search_res = ctx.obj.gpg.search_keys(email, keyserver=keyserver)
     else:
         search_res = ctx.obj.gpg.search_keys(email)
-    now = str(int(datetime.datetime.now().timestamp()))
+    now = str(int(datetime.now().timestamp()))
     non_expired = []
     for res in search_res:
-        if res["expires"] < now:
-            continue
-        non_expired.append(res)
+        if res["expires"] == "" or res["expires"] > now:
+            non_expired.append(res)
     if len(non_expired) == 0:
         click.secho("A fingerprint with the key could not be found.")
         sys.exit(1)
@@ -301,13 +300,20 @@ def handle_email(ctx, email, keyserver=None):
         return non_expired[0]["keyid"]
     for idx, res in enumerate(non_expired):
         click.echo(
-            "{idx}) {fingerprint} {uid}".format(
-                idx=idx, fingerprint=res["keyid"], uid=res["uids"][0]
+            "{idx}) {fingerprint} {uid} - Created: {created}".format(
+                idx=idx,
+                fingerprint=res["keyid"],
+                uid=res["uids"][0],
+                created=datetime.utcfromtimestamp(int(res["date"])).strftime('%m/%d/%Y %H:%M:%S')
             )
         )
     num = len(non_expired)
-    value = int(input("Please select a key to add: "))
-    if value > num:
+    try:
+        value = int(input("Please select a key to add: "))
+        if value > num:
+            click.secho("Invalid number, exiting")
+            sys.exit(1)
+    except:
         click.secho("Invalid number, exiting")
         sys.exit(1)
     return non_expired[value]["keyid"]

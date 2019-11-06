@@ -112,6 +112,8 @@ class MutualTLS:
             return False
 
     def create_cert(self, output):
+        if output:
+            self.override = True
         self._create_db()
         cert = None
         if not self._has_root_cert():
@@ -292,21 +294,26 @@ class MutualTLS:
     def delete_cert_by_name(self, name):
         paths = self._get_certdb_paths()
         if sys.platform == "darwin":
-            fingerprint = self.config.get(self.server, "current_sha")
-            click.secho(
-                "Deleting invalid/expired certificates for {}".format(
-                    fingerprint
-                ),
-                fg="yellow",
+            fingerprint = self.config.get(
+                self.server,
+                "current_sha",
+                fallback=""
             )
-            delete_identity_cmd = [
-                "security",
-                "delete-identity",
-                "-Z",
-                fingerprint,
-            ]
-            output = self._run_cmd(delete_identity_cmd, capture_output=True)
-            # Override path to just be firefox on darwin for the next command
+            if fingerprint != "":
+                click.secho(
+                    "Deleting invalid/expired certificates for {}".format(
+                        fingerprint
+                    ),
+                    fg="yellow",
+                )
+                delete_identity_cmd = [
+                    "security",
+                    "delete-identity",
+                    "-Z",
+                    fingerprint,
+                ]
+                output = self._run_cmd(delete_identity_cmd, capture_output=True)
+                # Override path to just be firefox on darwin for the next command
             paths = self._firefox_certdb_location()
         if sys.platform in ["linux", "linux2", "darwin"]:
             click.secho(
@@ -908,7 +915,6 @@ class MutualTLS:
         )
 
     def set_user_options(self, options):
-        self.override = True
         for key in options:
             self.config.set(self.server, key, options.get(key))
 

@@ -55,13 +55,10 @@ class MutualTLS:
             self.CONFIG_FOLDER_PATH = "{}/.config/mtls".format(self.HOME)
             self.CONFIG_FILE = "config.ini"
             self.config_file_path = "{config_path}/{config_file}".format(
-                config_path=self.CONFIG_FOLDER_PATH,
-                config_file=self.CONFIG_FILE,
+                config_path=self.CONFIG_FOLDER_PATH, config_file=self.CONFIG_FILE
             )
         else:
-            self.CONFIG_FOLDER_PATH = "/".join(
-                options["config"].split("/")[:-1]
-            )
+            self.CONFIG_FOLDER_PATH = "/".join(options["config"].split("/")[:-1])
             self.CONFIG_FILE = options["config"].split("/")[-1]
             self.config_file_path = options["config"]
         self.USER_KEY = "{}.key.gpg".format(self.USER)
@@ -99,9 +96,7 @@ class MutualTLS:
 
     def check_revoked(self, cert):
         with open(self.crl_file_path, "rb") as f:
-            crl = x509.load_pem_x509_crl(
-                data=f.read(), backend=default_backend()
-            )
+            crl = x509.load_pem_x509_crl(data=f.read(), backend=default_backend())
             if cert.issuer != crl.issuer:
                 click.secho("Cert does not match CRL", fg="red")
                 sys.exit(1)
@@ -119,13 +114,9 @@ class MutualTLS:
         if not self._has_root_cert():
             self._get_and_set_root_cert()
         if sys.platform == "darwin":
-            (valid, exists, revoked) = self.check_valid_cert(
-                name=self.cert_file_path
-            )
+            (valid, exists, revoked) = self.check_valid_cert(name=self.cert_file_path)
         else:
-            (valid, exists, revoked) = self.check_valid_cert(
-                name=self.friendly_name
-            )
+            (valid, exists, revoked) = self.check_valid_cert(name=self.friendly_name)
         if valid is True:
             click.secho("Reusing valid certificate", fg="green")
             sys.exit(0)
@@ -156,15 +147,11 @@ class MutualTLS:
             with open(self.cert_file_path, "w") as cert_file:
                 click.echo("Writing file to {}".format(self.cert_file_path))
                 cert_file.write(
-                    cert.public_bytes(serialization.Encoding.PEM).decode(
-                        "utf-8"
-                    )
+                    cert.public_bytes(serialization.Encoding.PEM).decode("utf-8")
                 )
         except Exception as e:
             click.secho(
-                "Could not write certificate to {}".format(
-                    self.cert_file_path
-                ),
+                "Could not write certificate to {}".format(self.cert_file_path),
                 fg="red",
             )
         if cert is None:
@@ -175,9 +162,7 @@ class MutualTLS:
         fpbytes = cert.fingerprint(hashes.SHA1())
         fp = binascii.hexlify(fpbytes)
         if not self.override:
-            self.update_config_value(
-                "current_sha", fp.decode("UTF-8"), self.server
-            )
+            self.update_config_value("current_sha", fp.decode("UTF-8"), self.server)
         certificate = OpenSSL.crypto.X509.from_cryptography(cert)
         p12.set_privatekey(pkey)
         p12.set_certificate(certificate)
@@ -226,17 +211,13 @@ class MutualTLS:
 
     def _get_and_set_root_cert(self):
         response = self.send_request(
-            server_url="{url}/ca".format(
-                url=self.config.get(self.server, "url")
-            ),
+            server_url="{url}/ca".format(url=self.config.get(self.server, "url")),
             method="get",
         )
         try:
             data = response.json()
         except Exception:
-            click.secho(
-                "Error parsing Root Certificate from server.", fg="red"
-            )
+            click.secho("Error parsing Root Certificate from server.", fg="red")
             sys.exit(1)
         # Update the issuer name directly from the server into your config
         self.config.set(self.server, "issuer", data["issuer"])
@@ -294,31 +275,19 @@ class MutualTLS:
     def delete_cert_by_name(self, name):
         paths = self._get_certdb_paths()
         if sys.platform == "darwin":
-            fingerprint = self.config.get(
-                self.server,
-                "current_sha",
-                fallback=""
-            )
+            fingerprint = self.config.get(self.server, "current_sha", fallback="")
             if fingerprint != "":
                 click.secho(
-                    "Deleting invalid/expired certificates for {}".format(
-                        fingerprint
-                    ),
+                    "Deleting invalid/expired certificates for {}".format(fingerprint),
                     fg="yellow",
                 )
-                delete_identity_cmd = [
-                    "security",
-                    "delete-identity",
-                    "-Z",
-                    fingerprint,
-                ]
+                delete_identity_cmd = ["security", "delete-identity", "-Z", fingerprint]
                 output = self._run_cmd(delete_identity_cmd, capture_output=True)
                 # Override path to just be firefox on darwin for the next command
             paths = self._firefox_certdb_location()
         if sys.platform in ["linux", "linux2", "darwin"]:
             click.secho(
-                "Deleting invalid/expired certificates for {}".format(name),
-                fg="yellow",
+                "Deleting invalid/expired certificates for {}".format(name), fg="yellow"
             )
             for path in paths:
                 cmd = ["certutil", "-D", "-d", path, "-n", name]
@@ -326,9 +295,7 @@ class MutualTLS:
                 try:
                     output = self._run_cmd(cmd, capture_output=True)
                 except Exception as e:
-                    click.echo(
-                        "Error deleting certificate with name: {}".format(name)
-                    )
+                    click.echo("Error deleting certificate with name: {}".format(name))
                     click.echo(e)
 
     def check_valid_cert(self, name=None, usage="V", is_root=False):
@@ -420,9 +387,7 @@ class MutualTLS:
 
     def get_cert_from_file(self):
         with open(self.cert_file_path, "rb") as cert_file:
-            return x509.load_pem_x509_certificate(
-                cert_file.read(), default_backend()
-            )
+            return x509.load_pem_x509_certificate(cert_file.read(), default_backend())
 
     def decrypt(self, data, is_file=True):
         if is_file:
@@ -445,9 +410,7 @@ class MutualTLS:
         except GPGDecryptionException:
             click.secho("Failed to decrypt CSR, invalid password.", fg="red")
             sys.exit(1)
-        return x509.load_pem_x509_csr(
-            bytes(csr_str, "utf-8"), default_backend()
-        )
+        return x509.load_pem_x509_csr(bytes(csr_str, "utf-8"), default_backend())
 
     def _genPW(self):
         wordList = []
@@ -464,22 +427,16 @@ class MutualTLS:
     def convert_to_cert(self, cert):
         try:
             cert = bytes(str(cert), "utf-8")
-            cert = x509.load_pem_x509_certificate(
-                cert, backend=default_backend()
-            )
+            cert = x509.load_pem_x509_certificate(cert, backend=default_backend())
             return cert
         except Exception as e:
             click.secho(
-                "Failure to load PEM x509 Certificate: {}".format(e),
-                fg="red",
-                err=True,
+                "Failure to load PEM x509 Certificate: {}".format(e), fg="red", err=True
             )
 
     def _run_cmd(self, args, capture_output=False):
         if capture_output:
-            return subprocess.run(
-                args, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-            )
+            return subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         return subprocess.run(args)
 
     def update_cert_storage(self, cert_file_path, cert_pw):
@@ -545,16 +502,13 @@ class MutualTLS:
                     self._run_cmd(cmd, capture_output=True)
             except Exception as e:
                 click.secho(
-                    "Could not add certificate to certificate store",
-                    fg="red",
-                    err=True,
+                    "Could not add certificate to certificate store", fg="red", err=True
                 )
                 click.echo(e)
         else:
             try:
                 self._run_cmd(
-                    ["certutil.exe", "-viewstore", "-user", "root"],
-                    capture_output=True,
+                    ["certutil.exe", "-viewstore", "-user", "root"], capture_output=True
                 )
             except Exception as e:
                 click.echo("Could not add certificate to certificate store")
@@ -577,14 +531,10 @@ class MutualTLS:
                 # Probably swapping subprocess.call with subprocess.popen so
                 # that users can manually enter passwords
                 click.secho("Making nssdb at {}".format(path), fg="green")
-                subprocess.call(
-                    ["certutil", "-d", path, "-N", "--empty-password"]
-                )
+                subprocess.call(["certutil", "-d", path, "-N", "--empty-password"])
 
     def _get_certdb_paths(self):
-        paths = [
-            self._primary_certdb_location()
-        ] + self._firefox_certdb_location()
+        paths = [self._primary_certdb_location()] + self._firefox_certdb_location()
         return paths
 
     def _primary_certdb_location(self):
@@ -640,9 +590,7 @@ class MutualTLS:
     def update_config(self, show_msg=True):
         if show_msg:
             click.secho(
-                "Updating config file settings for {server}".format(
-                    server=self.server
-                ),
+                "Updating config file settings for {server}".format(server=self.server),
                 fg="green",
             )
         with open(self.config_file_path, "w") as config_file:
@@ -656,11 +604,7 @@ class MutualTLS:
                 + "selection one with the --server (-s) option"
             )
         if self.server not in self.config:
-            click.echo(
-                self.MISSING_CONFIGURATION_FOR_SERVER.format(
-                    server=self.server
-                )
-            )
+            click.echo(self.MISSING_CONFIGURATION_FOR_SERVER.format(server=self.server))
             sys.exit(1)
 
     def encrypt(self, data, recipient, sign=False):
@@ -684,9 +628,7 @@ class MutualTLS:
             try:
                 key_data = self.decrypt(open(key_path, "rb"))
             except GPGDecryptionException:
-                click.secho(
-                    "Failed to decrypt user key. Invalid password", fg="red"
-                )
+                click.secho("Failed to decrypt user key. Invalid password", fg="red")
                 sys.exit(1)
             byte_key_data = bytes(str(key_data), "utf-8")
             key = serialization.load_pem_private_key(
@@ -720,8 +662,7 @@ class MutualTLS:
             csr - The CSR
         """
         click.secho(
-            "Generating CSR for {server}".format(server=self.server),
-            fg="yellow",
+            "Generating CSR for {server}".format(server=self.server), fg="yellow"
         )
         country = self.config.get(self.server, "country")
         state = self.config.get(self.server, "state")
@@ -734,16 +675,12 @@ class MutualTLS:
                 x509.Name(
                     [
                         x509.NameAttribute(NameOID.COUNTRY_NAME, country),
-                        x509.NameAttribute(
-                            NameOID.STATE_OR_PROVINCE_NAME, state
-                        ),
+                        x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, state),
                         x509.NameAttribute(NameOID.LOCALITY_NAME, locality),
                         x509.NameAttribute(
                             NameOID.ORGANIZATION_NAME, organization_name
                         ),
-                        x509.NameAttribute(
-                            NameOID.COMMON_NAME, self.friendly_name
-                        ),
+                        x509.NameAttribute(NameOID.COMMON_NAME, self.friendly_name),
                         x509.NameAttribute(NameOID.EMAIL_ADDRESS, email),
                     ]
                 )
@@ -759,9 +696,7 @@ class MutualTLS:
 
         with open(
             "{config}/{server}/{csr}".format(
-                config=self.CONFIG_FOLDER_PATH,
-                server=self.server,
-                csr=csr_fname,
+                config=self.CONFIG_FOLDER_PATH, server=self.server, csr=csr_fname
             ),
             "wb",
         ) as f:
@@ -783,17 +718,13 @@ class MutualTLS:
         if method == "post":
             if payload is None:
                 click.secho(
-                    "Payload missing for request. Cancelling",
-                    fg="red",
-                    err=True,
+                    "Payload missing for request. Cancelling", fg="red", err=True
                 )
             return requests.post(server_url, json=payload, verify=True)
         if method == "delete":
             if payload is None:
                 click.secho(
-                    "Payload missing for request. Cancelling",
-                    fg="red",
-                    err=True,
+                    "Payload missing for request. Cancelling", fg="red", err=True
                 )
             return requests.delete(server_url, json=payload, verify=True)
         if method == "get":
@@ -837,9 +768,7 @@ class MutualTLS:
         payload = {
             "csr": csr_public_bytes.decode("utf-8"),
             "signature": str(signature),
-            "lifetime": self.config.get(
-                self.server, "lifetime", fallback=64800
-            ),
+            "lifetime": self.config.get(self.server, "lifetime", fallback=64800),
             "type": "CERTIFICATE",
         }
         response = self.send_request(payload)
@@ -885,9 +814,7 @@ class MutualTLS:
         else:
             _type = "User"
         click.secho(
-            "Added {_type}: {fingerprint}".format(
-                fingerprint=fingerprint, _type=_type
-            ),
+            "Added {_type}: {fingerprint}".format(fingerprint=fingerprint, _type=_type),
             fg="green",
         )
 
@@ -934,14 +861,11 @@ class MutualTLS:
         if not output:
             click.echo("Retrieving CRL from server...")
         response = self.send_request(
-            server_url=self.config.get(self.server, "url") + "/crl",
-            method="get",
+            server_url=self.config.get(self.server, "url") + "/crl", method="get"
         )
         if response.status_code != 200:
             click.secho(
-                "Failed to retrieve CRL from {}".format(self.server),
-                fg="red",
-                err=True,
+                "Failed to retrieve CRL from {}".format(self.server), fg="red", err=True
             )
         if output:
             click.echo(response.text)

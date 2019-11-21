@@ -33,12 +33,13 @@ set-hooks:
 
 .PHONY: format
 format:
-	@pipenv run black -l 79 ./mtls/*.py
-	@pipenv run black -l 79 ./test/*.py
+	@pipenv run black ./mtls/*.py
+	@pipenv run black ./test/*.py
 
 .PHONY: lint
 lint:
-	@pipenv run pycodestyle **/*.py
+	@pipenv run black --check ./mtls/
+	@pipenv run black --check ./test/
 
 .PHONY: build-develop
 build-develop:

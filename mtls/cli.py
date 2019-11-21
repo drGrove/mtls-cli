@@ -33,9 +33,7 @@ ALLOWED_KEYS = [
 
 @click.group(help=HELP_TEXT)
 @click.version_option(__version__, message="%(version)s")
-@click.option(
-    "--server", "-s", type=str, help="Server to run command against."
-)
+@click.option("--server", "-s", type=str, help="Server to run command against.")
 @click.option(
     "--config",
     "-c",
@@ -73,9 +71,7 @@ def config(ctx, key, value):
         click.secho(AK.MSG.format(",".join(ALLOWED_KEYS)), fg="red")
         sys.exit(1)
     if server == "DEFAULT" and key == "url":
-        click.secho(
-            "url is not a valid config when no server is set", fg="red"
-        )
+        click.secho("url is not a valid config when no server is set", fg="red")
         sys.exit(1)
     config = ConfigParser()
     config.read(config_path)
@@ -135,9 +131,7 @@ def certificate(ctx):
     pass
 
 
-@certificate.command(
-    "create", help="Create a Client Certificate for a given server."
-)
+@certificate.command("create", help="Create a Client Certificate for a given server.")
 @click.option(
     "--output",
     "-o",
@@ -147,15 +141,9 @@ def certificate(ctx):
     """,
     type=click.Path(exists=False),
 )
-@click.option(
-    "--friendly-name", help="The friendly name of the certificate", type=str
-)
-@click.option(
-    "--user-email", help="The users email for the certificate", type=str
-)
-@click.option(
-    "--organization", "-org", help="The users organization", type=str
-)
+@click.option("--friendly-name", help="The friendly name of the certificate", type=str)
+@click.option("--user-email", help="The users email for the certificate", type=str)
+@click.option("--organization", "-org", help="The users organization", type=str)
 @click.option(
     "--common-name", "-c", help="The common name for the certificate", type=str
 )
@@ -185,12 +173,8 @@ def create_certificate(
 
 @certificate.command("revoke", help="Revoke a certificate for a given server.")
 @click.option("--fingerprint", "-f", default=None, help="User PGP Fingerprint")
-@click.option(
-    "--serial-number", default=None, help="Serial Number of certificate"
-)
-@click.option(
-    "--name", "-n", default=None, help="The common name on the certificate."
-)
+@click.option("--serial-number", default=None, help="Serial Number of certificate")
+@click.option("--name", "-n", default=None, help="The common name on the certificate.")
 @click.pass_context
 def revoke_certificate(ctx, fingerprint, serial_number, name):
     if not isinstance(ctx.obj, MutualTLS):
@@ -223,9 +207,7 @@ def user(ctx):
 
 
 @user.command("add", help="Add a user (Admin Required).")
-@click.option(
-    "--admin", is_flag=True, default=False, help="Is the user an admin"
-)
+@click.option("--admin", is_flag=True, default=False, help="Is the user an admin")
 @click.option("--fingerprint", "-f", default=None, help="User PGP Fingerprint")
 @click.option(
     "--email",
@@ -253,9 +235,7 @@ def add_user(ctx, admin, fingerprint, email, keyserver):
 
 
 @user.command("remove", help="Remove a user (Admin Required).")
-@click.option(
-    "--admin", is_flag=True, default=False, help="Is the user an admin"
-)
+@click.option("--admin", is_flag=True, default=False, help="Is the user an admin")
 @click.option("--fingerprint", "-f", default=None, help="User PGP Fingerprint")
 @click.option(
     "--email",
@@ -304,7 +284,9 @@ def handle_email(ctx, email, keyserver=None):
                 idx=idx,
                 fingerprint=res["keyid"],
                 uid=res["uids"][0],
-                created=datetime.utcfromtimestamp(int(res["date"])).strftime('%m/%d/%Y %H:%M:%S')
+                created=datetime.utcfromtimestamp(int(res["date"])).strftime(
+                    "%m/%d/%Y %H:%M:%S"
+                ),
             )
         )
     num = len(non_expired)

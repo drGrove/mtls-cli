@@ -66,9 +66,7 @@ def generate_csr(key, common_name, email):
                     x509.NameAttribute(NameOID.COUNTRY_NAME, country),
                     x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, state),
                     x509.NameAttribute(NameOID.LOCALITY_NAME, locality),
-                    x509.NameAttribute(
-                        NameOID.ORGANIZATION_NAME, organization_name
-                    ),
+                    x509.NameAttribute(NameOID.ORGANIZATION_NAME, organization_name),
                     x509.NameAttribute(NameOID.COMMON_NAME, common_name),
                     x509.NameAttribute(NameOID.EMAIL_ADDRESS, email),
                 ]
@@ -138,9 +136,7 @@ class TestCliBase(unittest.TestCase):
         cls.seed_dir = tempfile.TemporaryDirectory(dir=TMPDIR_PREFIX)
         for subpath in ["user", "admin"]:
             os.makedirs(
-                "{base}/{subpath}".format(
-                    base=cls.seed_dir.name, subpath=subpath
-                )
+                "{base}/{subpath}".format(base=cls.seed_dir.name, subpath=subpath)
             )
         cls.server_config_dir = tempfile.TemporaryDirectory(dir=TMPDIR_PREFIX)
         cls.docker = docker.from_env()
@@ -152,32 +148,23 @@ class TestCliBase(unittest.TestCase):
             "johndoe@example.com", gen_passwd(), generate_key(), cls.admin_gpg
         )
         file_path = os.path.join(
-            cls.seed_dir.name,
-            "admin/{}.asc".format(cls.admin.pgp_key.fingerprint),
+            cls.seed_dir.name, "admin/{}.asc".format(cls.admin.pgp_key.fingerprint)
         )
         with open(file_path, "w") as f:
             f.write(cls.admin_gpg.export_keys(cls.admin.pgp_key.fingerprint))
         cls.USER_GNUPGHOME = tempfile.TemporaryDirectory(dir=TMPDIR_PREFIX)
-        cls.user_gpg = gnupg.GPG(
-            gnupghome=cls.USER_GNUPGHOME.name, verbose=VERBOSE_GPG
-        )
+        cls.user_gpg = gnupg.GPG(gnupghome=cls.USER_GNUPGHOME.name, verbose=VERBOSE_GPG)
         cls.user = User(
             "johndoe@example.com", gen_passwd(), generate_key(), cls.user_gpg
         )
         file_path = os.path.join(
-            cls.seed_dir.name,
-            "user/{}.asc".format(cls.user.pgp_key.fingerprint),
+            cls.seed_dir.name, "user/{}.asc".format(cls.user.pgp_key.fingerprint)
         )
         with open(file_path, "w") as f:
             f.write(cls.user_gpg.export_keys(cls.user.pgp_key.fingerprint))
         cls.server_config = ConfigParser()
-        cls.server_config_path = os.path.join(
-            cls.server_config_dir.name, "config.ini"
-        )
-        cls.server_config["mtls"] = {
-            "min_lifetime": "10",
-            "max_lifetime": "1000",
-        }
+        cls.server_config_path = os.path.join(cls.server_config_dir.name, "config.ini")
+        cls.server_config["mtls"] = {"min_lifetime": "10", "max_lifetime": "1000"}
         cls.server_config["ca"] = {
             "key": "secrets/certs/authority/RootCA.key",
             "cert": "secrets/certs/authority/RootCA.pem",
@@ -199,9 +186,7 @@ class TestCliBase(unittest.TestCase):
             "mode": "rw",
         }
         cls.server = cls.docker.containers.run(
-            "drgrove/mtls-server:{version}".format(
-                version=MTLS_SERVER_VERSION
-            ),
+            "drgrove/mtls-server:{version}".format(version=MTLS_SERVER_VERSION),
             detach=True,
             volumes=volumes,
             remove=True,
@@ -280,9 +265,7 @@ class TestCliAsAdmin(TestCliBase):
         self.assertEqual(result.exit_code, 0)
         cert_file_path = os.path.join(self.HOME.name, "test/test.pem")
         with open(cert_file_path, "rb") as cert_file:
-            cert = x509.load_pem_x509_certificate(
-                cert_file.read(), default_backend()
-            )
+            cert = x509.load_pem_x509_certificate(cert_file.read(), default_backend())
         self.assertEqual(
             cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value,
             "My Org - Foo Bar",
@@ -329,12 +312,8 @@ class TestCliAsAdmin(TestCliBase):
         self.assertEqual(result.exit_code, 0, msg=result.exc_info)
         cert_file_path = os.path.join(self.HOME.name, "test/test.pem")
         with open(cert_file_path, "rb") as cert_file:
-            cert = x509.load_pem_x509_certificate(
-                cert_file.read(), default_backend()
-            )
-        email = cert.subject.get_attributes_for_oid(NameOID.EMAIL_ADDRESS)[
-            0
-        ].value
+            cert = x509.load_pem_x509_certificate(cert_file.read(), default_backend())
+        email = cert.subject.get_attributes_for_oid(NameOID.EMAIL_ADDRESS)[0].value
         self.assertEqual(email, input_email)
 
     def test_create_certificate_with_cli_output_option(self):
@@ -354,9 +333,7 @@ class TestCliAsAdmin(TestCliBase):
             ],
         )
         self.assertEqual(result.exit_code, 0, msg=result.exc_info)
-        self.assertTrue(
-            os.path.isfile("{}/{}".format(self.HOME.name, "me.pfx"))
-        )
+        self.assertTrue(os.path.isfile("{}/{}".format(self.HOME.name, "me.pfx")))
         self.assertTrue(
             os.path.isfile("{}/{}".format(self.HOME.name, "me.password.asc"))
         )
@@ -364,9 +341,7 @@ class TestCliAsAdmin(TestCliBase):
     def test_revoke_certificate(self):
         cert_file_path = os.path.join(self.HOME.name, "test/test.pem")
         with open(cert_file_path, "rb") as cert_file:
-            cert = x509.load_pem_x509_certificate(
-                cert_file.read(), default_backend()
-            )
+            cert = x509.load_pem_x509_certificate(cert_file.read(), default_backend())
         result = self.runner.invoke(
             cli,
             [
@@ -617,9 +592,7 @@ class TestCliAsAdmin(TestCliBase):
         self.assertEqual(result.exit_code, 0, msg=result.exc_info)
 
     def get_crl_to_output(self):
-        result = self.runner.invoke(
-            cli, ["-s", "test", "certificate", "crl", "-o"]
-        )
+        result = self.runner.invoke(cli, ["-s", "test", "certificate", "crl", "-o"])
         self.assertEqual(result.exit_code, 0, msg=result.exc_info)
         crl = x509.load_pem_x509_crl(
             data=bytes(result.output, "UTF-8"), backend=default_backend()
@@ -639,14 +612,10 @@ class TestCliAsAdmin(TestCliBase):
         )
 
     def get_crl_to_file(self):
-        result = self.runner.invoke(
-            cli, ["-s", "test", "certificate", "crl", "-no"]
-        )
+        result = self.runner.invoke(cli, ["-s", "test", "certificate", "crl", "-no"])
         self.assertEqual(result.exit_code, 0, msg=result.exc_info)
         with open("{base}/test/test.crl".format(self.HOME.name), "rb") as crl:
-            crl = x509.load_pem_x509_crl(
-                data=f.read(), backend=default_backend()
-            )
+            crl = x509.load_pem_x509_crl(data=f.read(), backend=default_backend())
             self.assertIsInstance(crl, openssl.x509._CertificateRevocationList)
             self.assertIsInstance(
                 crl.get_revoked_certificate_by_serial_number(rev_serial_num),
@@ -729,9 +698,7 @@ class TestCliAsUser(TestCliBase):
     def test_revoke_certificate(self):
         cert_file_path = os.path.join(self.HOME.name, "test/test.pem")
         with open(cert_file_path, "rb") as cert_file:
-            cert = x509.load_pem_x509_certificate(
-                cert_file.read(), default_backend()
-            )
+            cert = x509.load_pem_x509_certificate(cert_file.read(), default_backend())
         result = self.runner.invoke(
             cli,
             [
@@ -982,9 +949,7 @@ class TestCliAsUser(TestCliBase):
         self.assertEqual(result.exit_code, 1, msg=result.exc_info)
 
     def get_crl_to_output(self):
-        result = self.runner.invoke(
-            cli, ["-s", "test", "certificate", "crl", "-o"]
-        )
+        result = self.runner.invoke(cli, ["-s", "test", "certificate", "crl", "-o"])
         self.assertEqual(result.exit_code, 0, msg=result.exc_info)
         crl = x509.load_pem_x509_crl(
             data=bytes(result.output, "UTF-8"), backend=default_backend()
@@ -1004,14 +969,10 @@ class TestCliAsUser(TestCliBase):
         )
 
     def get_crl_to_file(self):
-        result = self.runner.invoke(
-            cli, ["-s", "test", "certificate", "crl", "-no"]
-        )
+        result = self.runner.invoke(cli, ["-s", "test", "certificate", "crl", "-no"])
         self.assertEqual(result.exit_code, 0, msg=result.exc_info)
         with open("{base}/test/test.crl".format(self.HOME.name), "rb") as crl:
-            crl = x509.load_pem_x509_crl(
-                data=f.read(), backend=default_backend()
-            )
+            crl = x509.load_pem_x509_crl(data=f.read(), backend=default_backend())
             self.assertIsInstance(crl, openssl.x509._CertificateRevocationList)
             self.assertIsInstance(
                 crl.get_revoked_certificate_by_serial_number(rev_serial_num),
@@ -1076,18 +1037,9 @@ class TestCliOptions(TestCliBase):
 
     def test_set_user_config(self):
         result = self.runner.invoke(
-            cli,
-            [
-                "-c",
-                self.config_path,
-                "config",
-                "organization_name",
-                "My New Org",
-            ],
+            cli, ["-c", self.config_path, "config", "organization_name", "My New Org"]
         )
         self.assertEqual(result.exit_code, 0, msg=result.exc_info)
         config = ConfigParser()
         config.read(self.config_path)
-        self.assertEqual(
-            config.get("DEFAULT", "organization_name"), "My New Org"
-        )
+        self.assertEqual(config.get("DEFAULT", "organization_name"), "My New Org")

@@ -2,34 +2,33 @@ Source: mtls
 Section: utils
 Priority: optional
 Maintainer: Danny Grove <dgrove@hashbang.sh>
-Uploaders:
-    Danny Grove <dgrove@hashbang.sh>
 Build-Depends:
     dh-python,
-    debhelper-compat (= 12),
-    libnss3,
+    debhelper (>= 11~),
     python3-all,
-    python3-setuptools,
     python3-setuptools-scm,
     python3-click,
     python3-cryptography,
     python3-pyopenssl,
     python3-request,
     python3-urllib3,
+    python3-gnupg,
 Vcs-git: https://github.com/drGrove/mtls-cli.git
 Vcs-Browser: https://github.com/drGrove/mtls-cli
+X-Python3-Version: >= 3.7
 
 Package: mtls
 Architecture: all
 Depends:
-    libnss3,
+    ${python3:Depends},
     python3-click,
     python3-cryptography,
     python3-pyopenssl,
     python3-request,
     python3-urllib3,
-    ${python3:Depends},
+    python3-gnupg,
     ${misc:Depends},
+    libnss3,
     gnupg2,
 Description: A short-lived certificate tool based on the Zero Trust network model
 

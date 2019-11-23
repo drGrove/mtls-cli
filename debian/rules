@@ -7,7 +7,9 @@ export PYBUILD_NAME = mtls
 	dh $@ --with python3 --buildsystem=pybuild
 
 override_dh_auto_install:
-	python3.7 setup.py install --prefix=/usr/
+	python3.7 setup.py install --install-layout=deb
 
 override_dh_auto_test:
+	# Tests require docker and pulling down the server image. So I don't think it makes sense
+	# to have the tests here.
 	$(exit 0)

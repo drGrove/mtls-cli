@@ -6,11 +6,12 @@ Build-Depends:
     dh-python,
     debhelper (>= 11~),
     python3-all,
+    python3-setuptools,
     python3-setuptools-scm,
     python3-click,
     python3-cryptography,
-    python3-pyopenssl,
-    python3-request,
+    python3-openssl,
+    python3-requests,
     python3-urllib3,
     python3-gnupg,
 Vcs-git: https://github.com/drGrove/mtls-cli.git
@@ -23,12 +24,15 @@ Depends:
     ${python3:Depends},
     python3-click,
     python3-cryptography,
-    python3-pyopenssl,
-    python3-request,
+    python3-openssl,
+    python3-requests,
     python3-urllib3,
     python3-gnupg,
     ${misc:Depends},
     libnss3,
     gnupg2,
-Description: A short-lived certificate tool based on the Zero Trust network model
-
+Description: Short-lived certificate tool based on the Zero Trust network model
+ mtls provides a tool for creating short lived X.509 certificates for
+ authentication to services while using GnuPG web-of-trust for the initial
+ authentication mechanism for ensuring a user is allowed to interact and
+ receive X.509 certificates

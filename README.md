@@ -1,11 +1,16 @@
 # Mutual TLS Client (mtls) #
 
-[![Known Vulnerabilities](https://snyk.io/test/github/drGrove/mtls-client/badge.svg)](https://snyk.io/test/github/drGrove/mtls-client)
+[![Known Vulnerabilities](https://snyk.io/test/github/drGrove/mtls-cli/badge.svg)](https://snyk.io/test/github/drGrove/mtls-cli)
+[![CircleCI](https://circleci.com/gh/drGrove/mtls-cli/tree/master.svg?style=svg)](https://circleci.com/gh/drGrove/mtls-cli/tree/master)
+![PyPI](https://img.shields.io/pypi/v/mtls?color=green)
+![AUR version](https://img.shields.io/aur/version/mtls)
 
 ## Runtime Dependencies ##
 
-* gnupg
-* libnss (certutil/pk12util on linux/windows, security on MacOS)
+* python >= 3.7
+* gnupg2
+* libnss3 (linux/windows)
+* security (MacOS)
 
 ## Overview ##
 
@@ -21,7 +26,7 @@ This system uses some of the base NSS primitives found in base tools for the ass
 
 This project currently works in the following OSes:
 
-* Linux (Arch/Ubuntu tested)
+* Linux (Arch/Debian/Ubuntu tested)
 * MacOS
 
 This project is based on the whitepapers for [Beyond Corp](https://www.beyondcorp.com/), which is Googles Zero Trust

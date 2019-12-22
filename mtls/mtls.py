@@ -186,6 +186,7 @@ class MutualTLS:
         p12.set_friendlyname(bytes(self.friendly_name, "UTF-8"))
         pwd = self._genPW()
         if output:
+            self.pfx_path = output
             pw = self.encrypt(pwd, self.config.get(self.server, "fingerprint"))
             pfx_base = "/".join(self.pfx_path.split("/")[:-1])
             pfx_file_base = self.pfx_path.split("/")[-1].split(".")[:-1]

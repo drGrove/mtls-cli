@@ -97,6 +97,7 @@ class MutualTLS:
             base=self.BASE_SERVER_PATH, server=self.server
         )
 
+
     def check_revoked(self, cert):
         with open(self.crl_file_path, "rb") as f:
             crl = x509.load_pem_x509_crl(
@@ -153,13 +154,14 @@ class MutualTLS:
             sys.exit(1)
         cert = self.convert_to_cert(cert_str)
         try:
-            with open(self.cert_file_path, "w") as cert_file:
-                click.echo("Writing file to {}".format(self.cert_file_path))
-                cert_file.write(
-                    cert.public_bytes(serialization.Encoding.PEM).decode(
-                        "utf-8"
+            if not output:
+                with open(self.cert_file_path, "w") as cert_file:
+                    click.echo("Writing file to {}".format(self.cert_file_path))
+                    cert_file.write(
+                        cert.public_bytes(serialization.Encoding.PEM).decode(
+                            "utf-8"
+                        )
                     )
-                )
         except Exception as e:
             click.secho(
                 "Could not write certificate to {}".format(
@@ -184,17 +186,17 @@ class MutualTLS:
         p12.set_friendlyname(bytes(self.friendly_name, "UTF-8"))
         pwd = self._genPW()
         if output:
-            self.pfx_path = output
             pw = self.encrypt(pwd, self.config.get(self.server, "fingerprint"))
             pfx_base = "/".join(self.pfx_path.split("/")[:-1])
-            pw_file = self.pfx_path.split("/")[-1].split(".")[:-1]
-            pw_file += ".password.asc"
+            pfx_file_base = self.pfx_path.split("/")[-1].split(".")[:-1]
+            pw_file = "{}.password.asc".format(pfx_file_base[0])
             pw_file = "".join(pw_file)
             pw_file = "{}/{}".format(pfx_base, pw_file)
             with open(pw_file, "wb") as pwfile:
                 click.echo("Writing password to: {}".format(pw_file))
                 pwfile.write(str(pw).encode("UTF-8"))
         with open(self.pfx_path, "wb") as f:
+            click.echo("Writing pfx to: {}".format(self.pfx_path))
             f.write(p12.export(passphrase=bytes(pwd, "UTF-8")))
         if not output:
             self.update_cert_storage(self.pfx_path, pwd)

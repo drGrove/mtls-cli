@@ -117,7 +117,7 @@ class MutualTLS:
             self.override = True
         self._create_db()
         cert = None
-        if not self._has_root_cert():
+        if not self._has_root_cert() or output:
             self._get_and_set_root_cert()
         if sys.platform == "darwin":
             (valid, exists, revoked) = self.check_valid_cert(
@@ -172,7 +172,7 @@ class MutualTLS:
         if cert is None:
             click.echo("Could not convert to certificate")
             sys.exit(1)
-        p12 = OpenSSL.crypto.PKCS12()
+        p12 = OpenSSL.crypto.PKCS12Type()
         pkey = OpenSSL.crypto.PKey.from_cryptography_key(key)
         fpbytes = cert.fingerprint(hashes.SHA1())
         fp = binascii.hexlify(fpbytes)
@@ -181,8 +181,12 @@ class MutualTLS:
                 "current_sha", fp.decode("UTF-8"), self.server
             )
         certificate = OpenSSL.crypto.X509.from_cryptography(cert)
+        ca_certificate = OpenSSL.crypto.X509.from_cryptography(
+            self.ca_certificate
+        )
         p12.set_privatekey(pkey)
         p12.set_certificate(certificate)
+        p12.set_ca_certificates(iter([ca_certificate]))
         p12.set_friendlyname(bytes(self.friendly_name, "UTF-8"))
         pwd = self._genPW()
         if output:
@@ -248,6 +252,7 @@ class MutualTLS:
         # the user and subsequent calls later.
         with open(self.ca_cert_file_path, "w") as ca_cert:
             ca_cert.write(data["cert"])
+        self.ca_certificate = self.get_cert_from_file(self.ca_cert_file_path)
         self.add_root_ca_to_store(self.ca_cert_file_path)
 
     def add_root_ca_to_store(self, ca_cert_file_path):
@@ -421,8 +426,10 @@ class MutualTLS:
                     revoked = self.check_revoked(self.get_cert_from_file())
         return is_valid, cert_exists, revoked
 
-    def get_cert_from_file(self):
-        with open(self.cert_file_path, "rb") as cert_file:
+    def get_cert_from_file(self, cert_file_path=None):
+        if not cert_file_path:
+            cert_file_path = self.cert_file_path
+        with open(cert_file_path, "rb") as cert_file:
             return x509.load_pem_x509_certificate(
                 cert_file.read(), default_backend()
             )

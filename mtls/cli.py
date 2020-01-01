@@ -179,8 +179,8 @@ def create_certificate(
     if common_name:
         options.update(common_name=common_name)
     if output:
-        if not output.endswith('pfx'):
-            click.secho("Output path must end in pfx")
+        if not output.endswith(('pfx', 'p12')):
+            click.secho("Output path must end in pfx or p12")
             sys.exit(1)
         if not output.startswith(('.', '/')):
             click.secho("Output path must be a valid path")

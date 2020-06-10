@@ -843,7 +843,11 @@ class MutualTLS:
             "type": "CERTIFICATE",
         }
         response = self.send_request(payload)
-        response = response.json()
+        try:
+            response = response.json()
+        except Exception as e:
+            click.secho("Error handling response from server. Bailing", fg="red")
+            sys.exit(-1)
         if response.get("error", False):
             click.echo(response.get("msg"))
             sys.exit(1)

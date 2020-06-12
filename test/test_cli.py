@@ -19,6 +19,7 @@ import click
 import docker
 import gnupg
 import tempfile
+import requests
 
 from mtls.cli import cli
 
@@ -36,12 +37,13 @@ def getListOfFiles(dirName):
 
 
 logging.disable(logging.CRITICAL)
-MTLS_SERVER_VERSION = os.environ.get("MTLS_SERVER_VERSION") or "v0.16.2"
+MTLS_SERVER_VERSION = os.environ.get("MTLS_SERVER_VERSION") or "v0.16.3"
+MTLS_IMAGE = os.environ.get("MTLS_IMAGE") or "drgrove/mtls-server"
 
 
 def generate_key():
     return rsa.generate_private_key(
-        public_exponent=65537, key_size=4096, backend=default_backend()
+        public_exponent=65537, key_size=1024, backend=default_backend()
     )
 
 
@@ -79,7 +81,7 @@ def generate_csr(key, common_name, email):
 
 
 def gen_pgp_key(email, password, gpg):
-    input_data = gpg.gen_key_input(name_email=email, passphrase=password)
+    input_data = gpg.gen_key_input(name_email=email, passphrase=password, key_type="RSA", key_length=1024)
     return gpg.gen_key(input_data)
 
 
@@ -199,14 +201,19 @@ class TestCliBase(unittest.TestCase):
             "mode": "rw",
         }
         cls.server = cls.docker.containers.run(
-            "drgrove/mtls-server:{version}".format(
-                version=MTLS_SERVER_VERSION
+            "{image}:{version}".format(
+                version=MTLS_SERVER_VERSION,
+                image=MTLS_IMAGE
             ),
             detach=True,
             volumes=volumes,
             remove=True,
             ports={"4000/tcp": 4000},
         )
+        while True:
+            resp = requests.get("http://localhost:4000/version")
+            if resp.status_code == 200:
+                break;
         cls.HOME = tempfile.TemporaryDirectory(dir=TMPDIR_PREFIX)
         cls.env = {
             "GNUPGHOME": cls.ADMIN_GNUPGHOME.name,
@@ -1091,3 +1098,44 @@ class TestCliOptions(TestCliBase):
         self.assertEqual(
             config.get("DEFAULT", "organization_name"), "My New Org"
         )
+
+class TestCliOptionalConfigItems(TestCliBase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.env = {
+            "GNUPGHOME": cls.USER_GNUPGHOME.name,
+            "HOME": cls.HOME.name,
+            "USER": "test",
+            "HOST": str(platform.uname()[1]),
+        }
+        cls.runner = CliRunner(env=cls.env)
+        cls.config = ConfigParser()
+        cls.config["DEFAULT"] = {
+            "name": "John Doe",
+            "email": "johndoe@example.com",
+            "fingerprint": cls.user.pgp_key.fingerprint,
+            "organization_name": "My Org",
+        }
+        cls.config["test"] = {"lifetime": 60, "url": "http://localhost:4000"}
+        cls.config_path = os.path.join(cls.HOME.name, "config.ini")
+        with open(cls.config_path, "w") as configfile:
+            cls.config.write(configfile)
+
+    def test_create_certificate(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                "-c",
+                self.config_path,
+                "-s",
+                "test",
+                "--gpg-password",
+                self.user.password,
+                "certificate",
+                "create",
+            ],
+        )
+        if result.exception:
+            traceback.print_exception(*result.exc_info)
+        self.assertEqual(result.exit_code, 0, msg=result.exc_info)

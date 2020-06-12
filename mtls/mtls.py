@@ -723,31 +723,29 @@ class MutualTLS:
             "Generating CSR for {server}".format(server=self.server),
             fg="yellow",
         )
-        country = self.config.get(self.server, "country")
-        state = self.config.get(self.server, "state")
-        locality = self.config.get(self.server, "locality")
+        country = self.config.get(self.server, "country", fallback=None)
+        state = self.config.get(self.server, "state", fallback=None)
+        locality = self.config.get(self.server, "locality", fallback=None)
         organization_name = self.config.get(self.server, "organization_name")
         email = self.config.get(self.server, "email")
+        csr_subject_arr = [
+            x509.NameAttribute(
+                NameOID.ORGANIZATION_NAME, organization_name
+            ),
+            x509.NameAttribute(
+                NameOID.COMMON_NAME, self.friendly_name
+            ),
+            x509.NameAttribute(NameOID.EMAIL_ADDRESS, email),
+        ]
+        if state:
+            csr_subject_arr.append(x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, state))
+        if country:
+            csr_subject_arr.append(x509.NameAttribute(NameOID.COUNTRY_NAME, country))
+        if locality:
+            csr_subject_arr.append(x509.NameAttribute(NameOID.LOCALITY_NAME, locality))
         csr = (
             x509.CertificateSigningRequestBuilder()
-            .subject_name(
-                x509.Name(
-                    [
-                        x509.NameAttribute(NameOID.COUNTRY_NAME, country),
-                        x509.NameAttribute(
-                            NameOID.STATE_OR_PROVINCE_NAME, state
-                        ),
-                        x509.NameAttribute(NameOID.LOCALITY_NAME, locality),
-                        x509.NameAttribute(
-                            NameOID.ORGANIZATION_NAME, organization_name
-                        ),
-                        x509.NameAttribute(
-                            NameOID.COMMON_NAME, self.friendly_name
-                        ),
-                        x509.NameAttribute(NameOID.EMAIL_ADDRESS, email),
-                    ]
-                )
-            )
+            .subject_name(x509.Name(csr_subject_arr))
             .sign(key, hashes.SHA256(), default_backend())
         )
         csr_fname = "{}.csr.asc".format(self.server)
@@ -847,6 +845,7 @@ class MutualTLS:
             response = response.json()
         except Exception as e:
             click.secho("Error handling response from server. Bailing", fg="red")
+            print(response.text)
             sys.exit(-1)
         if response.get("error", False):
             click.echo(response.get("msg"))

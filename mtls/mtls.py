@@ -295,9 +295,7 @@ class MutualTLS:
         paths = self._get_certdb_paths()
         if sys.platform == "darwin":
             fingerprint = self.config.get(
-                self.server,
-                "current_sha",
-                fallback=""
+                self.server, "current_sha", fallback=""
             )
             if fingerprint != "":
                 click.secho(
@@ -312,8 +310,10 @@ class MutualTLS:
                     "-Z",
                     fingerprint,
                 ]
-                output = self._run_cmd(delete_identity_cmd, capture_output=True)
-                # Override path to just be firefox on darwin for the next command
+                output = self._run_cmd(
+                    delete_identity_cmd, capture_output=True
+                )
+            # Override path to just be firefox on darwin for the next command
             paths = self._firefox_certdb_location()
         if sys.platform in ["linux", "linux2", "darwin"]:
             click.secho(
@@ -729,20 +729,22 @@ class MutualTLS:
         organization_name = self.config.get(self.server, "organization_name")
         email = self.config.get(self.server, "email")
         csr_subject_arr = [
-            x509.NameAttribute(
-                NameOID.ORGANIZATION_NAME, organization_name
-            ),
-            x509.NameAttribute(
-                NameOID.COMMON_NAME, self.friendly_name
-            ),
+            x509.NameAttribute(NameOID.ORGANIZATION_NAME, organization_name),
+            x509.NameAttribute(NameOID.COMMON_NAME, self.friendly_name),
             x509.NameAttribute(NameOID.EMAIL_ADDRESS, email),
         ]
         if state:
-            csr_subject_arr.append(x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, state))
+            csr_subject_arr.append(
+                x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, state)
+            )
         if country:
-            csr_subject_arr.append(x509.NameAttribute(NameOID.COUNTRY_NAME, country))
+            csr_subject_arr.append(
+                x509.NameAttribute(NameOID.COUNTRY_NAME, country)
+            )
         if locality:
-            csr_subject_arr.append(x509.NameAttribute(NameOID.LOCALITY_NAME, locality))
+            csr_subject_arr.append(
+                x509.NameAttribute(NameOID.LOCALITY_NAME, locality)
+            )
         csr = (
             x509.CertificateSigningRequestBuilder()
             .subject_name(x509.Name(csr_subject_arr))
@@ -844,7 +846,9 @@ class MutualTLS:
         try:
             response = response.json()
         except Exception as e:
-            click.secho("Error handling response from server. Bailing", fg="red")
+            click.secho(
+                "Error handling response from server. Bailing", fg="red"
+            )
             print(response.text)
             sys.exit(-1)
         if response.get("error", False):

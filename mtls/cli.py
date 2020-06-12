@@ -304,7 +304,9 @@ def handle_email(ctx, email, keyserver=None):
                 idx=idx,
                 fingerprint=res["keyid"],
                 uid=res["uids"][0],
-                created=datetime.utcfromtimestamp(int(res["date"])).strftime('%m/%d/%Y %H:%M:%S')
+                created=datetime.utcfromtimestamp(int(res["date"])).strftime(
+                    "%m/%d/%Y %H:%M:%S"
+                ),
             )
         )
     num = len(non_expired)
@@ -313,7 +315,7 @@ def handle_email(ctx, email, keyserver=None):
         if value > num:
             click.secho("Invalid number, exiting")
             sys.exit(1)
-    except:
+    except Exception:
         click.secho("Invalid number, exiting")
         sys.exit(1)
     return non_expired[value]["keyid"]

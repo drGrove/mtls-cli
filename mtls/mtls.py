@@ -584,17 +584,27 @@ class MutualTLS:
     def _get_certdb_paths(self):
         paths = [
             self._primary_certdb_location()
-        ] + self._firefox_certdb_location()
+        ] + self._firefox_certdb_location() + self._chrome_certdb_location()
         return paths
 
     def _primary_certdb_location(self):
         return os.path.join(self.HOME, ".pki/nssdb")
+
+    def _chrome_certdb_location(self):
+        if sys.platform == "linux" or sys.platform == "linux2":
+            if os.path.isdir(os.path.join(self.HOME, "snap")):
+                return [
+                    os.path.join(self.HOME, "snap/chromium/current/.pki/nssdb")
+                ]
+
+        return []
 
     def _firefox_certdb_location(self):
         base_path = None
         paths = []
         if sys.platform == "linux" or sys.platform == "linux2":
             base_path = os.path.join(self.HOME, ".mozilla/firefox")
+
         elif sys.platform == "darwin":
             # Make directory if it doesn't exist
             base_path = os.path.join(
@@ -849,7 +859,6 @@ class MutualTLS:
             click.secho(
                 "Error handling response from server. Bailing", fg="red"
             )
-            print(response.text)
             sys.exit(-1)
         if response.get("error", False):
             click.echo(response.get("msg"))

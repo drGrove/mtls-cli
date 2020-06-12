@@ -2,6 +2,7 @@
 /.eggs/
 /build/
 /dist/
+/env/
 *.pyc
 mtls-*
 build

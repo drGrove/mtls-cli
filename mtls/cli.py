@@ -102,7 +102,7 @@ def add_server(ctx, name):
     config_path = ctx.obj["config_path"]
     value = click.prompt(
         "What is the url of the Certificate Authority? (ie. "
-        + "https://certauth.example.com): "
+        + "https://certauth.example.com)"
     )
     config = ConfigParser()
     config.read(config_path)

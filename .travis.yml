@@ -10,7 +10,7 @@ matrix:
 services:
 - docker
 env:
-- PIPENV_IGNORE_VIRTUALENVS=1 MTLS_SERVER_VERSION=v0.16.3 TMPDIR=/home/travis/tmp
+- PIPENV_IGNORE_VIRTUALENVS=1 MTLS_SERVER_VERSION=v0.16.3 TMP_DIR=/home/travis/
 addons:
   apt:
     packages:

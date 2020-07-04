@@ -15,7 +15,8 @@ addons:
   apt:
     packages:
     - cmake
-    - libnss3
+    - libnss3-tools
+    - gnupg
   homebrew:
     packages:
     - nss

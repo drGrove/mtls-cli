@@ -211,9 +211,11 @@ class TestCliBase(unittest.TestCase):
             remove=True,
             ports={"4000/tcp": 4000},
         )
+        print("Waiting on server to be ready...")
         while True:
             resp = requests.get("http://localhost:4000/version")
             if resp.status_code == 200:
+                print("Server ready")
                 break
         cls.HOME = tempfile.TemporaryDirectory(dir=TMPDIR_PREFIX)
         cls.env = {
@@ -313,7 +315,7 @@ class TestCliAsAdmin(TestCliBase):
                 input_email,
             ],
         )
-        self.assertEqual(result.exit_code, 1, msg=result.exc_info[2].print_tb())
+        self.assertEqual(result.exit_code, 1, msg=result.exc_info[2])
 
     def test_create_certificate_with_cli_email_option(self):
         input_email = "test1245566@example.com"
@@ -343,7 +345,7 @@ class TestCliAsAdmin(TestCliBase):
         email = cert.subject.get_attributes_for_oid(NameOID.EMAIL_ADDRESS)[
             0
         ].value
-        self.assertEqual(email, input_email)
+        self.assertEqual(email, input_email, msg=result.exc_info[2])
 
     def test_create_certificate_with_cli_output_option(self):
         result = self.runner.invoke(

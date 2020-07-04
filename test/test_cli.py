@@ -313,7 +313,7 @@ class TestCliAsAdmin(TestCliBase):
                 input_email,
             ],
         )
-        self.assertEqual(result.exit_code, 1, msg=result.exc_info.print_tb())
+        self.assertEqual(result.exit_code, 1, msg=result.exc_info[2].print_tb())
 
     def test_create_certificate_with_cli_email_option(self):
         input_email = "test1245566@example.com"

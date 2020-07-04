@@ -5,8 +5,6 @@ import os
 import pkg_resources
 import platform
 import random
-import re
-import shutil
 import subprocess
 import sys
 from configparser import ConfigParser
@@ -52,19 +50,16 @@ class MutualTLS:
         self.options = options
         self.override = False
         if options["config"] is None:
-            self.CONFIG_FOLDER_PATH = "{}/.config/mtls".format(self.HOME)
+            self.CONFIG_FOLDER_PATH = f"{self.HOME}/.config/mtls"
             self.CONFIG_FILE = "config.ini"
-            self.config_file_path = "{config_path}/{config_file}".format(
-                config_path=self.CONFIG_FOLDER_PATH,
-                config_file=self.CONFIG_FILE,
-            )
+            self.config_file_path = f"{self.CONFIG_FOLDER_PATH}/{self.CONFIG_FILE}"
         else:
             self.CONFIG_FOLDER_PATH = "/".join(
                 options["config"].split("/")[:-1]
             )
             self.CONFIG_FILE = options["config"].split("/")[-1]
             self.config_file_path = options["config"]
-        self.USER_KEY = "{}.key.gpg".format(self.USER)
+        self.USER_KEY = f"{self.USER}.key.gpg"
         self.GNUPGHOME = os.environ.get("GNUPGHOME")
         if self.GNUPGHOME is None:
             self.GNUPGHOME = "{}/{}".format(os.environ.get("HOME"), ".gnupg")
@@ -81,21 +76,11 @@ class MutualTLS:
             user=str(os.environ.get("USER")),
             hostname=str(platform.uname()[1]),
         )
-        self.BASE_SERVER_PATH = "{base_path}/{server}".format(
-            base_path=self.CONFIG_FOLDER_PATH, server=self.server
-        )
-        self.pfx_path = "{base}/{server}.pfx".format(
-            base=self.BASE_SERVER_PATH, server=self.server
-        )
-        self.cert_file_path = "{base}/{server}.pem".format(
-            base=self.BASE_SERVER_PATH, server=self.server
-        )
-        self.ca_cert_file_path = "{base}/{server}_Root_CA.pem".format(
-            base=self.BASE_SERVER_PATH, server=self.server
-        )
-        self.crl_file_path = "{base}/crl.pem".format(
-            base=self.BASE_SERVER_PATH, server=self.server
-        )
+        self.BASE_SERVER_PATH = f"{self.CONFIG_FOLDER_PATH}/{self.server}"
+        self.pfx_path = f"{self.BASE_SERVER_PATH}/{self.server}.pfx"
+        self.cert_file_path = f"{self.BASE_SERVER_PATH}/{self.server}.pem"
+        self.ca_cert_file_path = f"{self.BASE_SERVER_PATH}/{self.server}_Root_CA.pem"
+        self.crl_file_path = f"{self.BASE_SERVER_PATH}/crl.pem"
 
     def check_revoked(self, cert):
         with open(self.crl_file_path, "rb") as f:
@@ -142,9 +127,7 @@ class MutualTLS:
             csr = self.generate_csr(key)
         else:
             click.secho(
-                "Reusing previously generated CSR for {server}".format(
-                    server=self.server
-                ),
+                f"Reusing previously generated CSR for {self.server}",
                 fg="green",
             )
         cert_str = self.sign_and_send_to_server(csr)
@@ -265,7 +248,7 @@ class MutualTLS:
             cmds = [add_trust_keychain, import_keychain]
             for cmd in cmds:
                 try:
-                    output = self._run_cmd(cmd, capture_output=True)
+                    self._run_cmd(cmd, capture_output=True)
                 except Exception as e:
                     click.echo("Error")
                     click.echo(e)
@@ -286,7 +269,7 @@ class MutualTLS:
                     "{server} Root CA".format(server=self.server),
                 ]
                 try:
-                    output = self._run_cmd(cmd, capture_output=True)
+                    self._run_cmd(cmd, capture_output=True)
                 except Exception as e:
                     click.echo("Error")
                     click.echo(e)

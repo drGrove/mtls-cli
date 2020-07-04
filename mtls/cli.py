@@ -13,7 +13,7 @@ from . import __version__
 HELP_TEXT = (
     "mtls is a PGP Web of Trust based SSL Client Certificate "
     "generation tool based on Googles Beyond Corp Zero Trust "
-    "Authentication. Version {}".format(__version__)
+    f"Authentication. Version {__version__}"
 )
 
 ALLOWED_KEYS = [
@@ -70,7 +70,7 @@ def config(ctx, key, value):
         config_path = ctx.obj["config_path"]
 
     if key not in ALLOWED_KEYS:
-        click.secho(AK.MSG.format(",".join(ALLOWED_KEYS)), fg="red")
+        click.secho(AK_MSG.format(",".join(ALLOWED_KEYS)), fg="red")
         sys.exit(1)
     if server == "DEFAULT" and key == "url":
         click.secho(

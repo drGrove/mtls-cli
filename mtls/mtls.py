@@ -675,7 +675,8 @@ class MutualTLS:
         if os.path.isfile(key_path):
             click.echo("Decrypting User Key...")
             try:
-                key_data = self.decrypt(open(key_path, "rb"))
+                with open(key_path, "rb") as data:
+                    key_data = self.decrypt(data)
             except GPGDecryptionException:
                 click.secho(
                     "Failed to decrypt user key. Invalid password", fg="red"

@@ -5,6 +5,7 @@ from configparser import ConfigParser
 from datetime import datetime
 
 import click
+import gnupg
 
 from .mtls import MutualTLS
 from . import __version__
@@ -30,6 +31,69 @@ ALLOWED_KEYS = [
     "url",
 ]
 
+HOME = os.environ.get("XDG_CONFIG_HOME", os.environ.get("HOME") + ".config/")
+
+
+def initial_setup(config_path):
+    """Run the user through inital setup."""
+    click.secho("Welcome to MTLS!")
+    name = input("What's you name? ")
+    email = input("What's your email? ")
+    gpg_keys = get_gpg_keys_for_email(email)
+    for idx, key in enumerate(gpg_keys):
+        created = datetime.utcfromtimestamp(int(key.get("date"))).strftime(
+            "%Y-%m-%d"
+        )
+        try:
+            expires = datetime.utcfromtimestamp(
+                int(key.get("expires"))
+            ).strftime("%Y-%m-%d")
+        except:
+            expires = "Never"
+        click.secho(
+            f"{idx + 1}) {key.get('keyid')} - Created: {created} Expires: {expires}"
+        )
+    if len(gpg_keys) > 0:
+        key = int(input("Which key would you like to use? ")) - 1
+        if key < 0 or key >= len(gpg_keys):
+            click.secho("Invalid input, bailing", fg="red")
+            sys.exit(1)
+        fingerprint = gpg_keys[key].get("fingerprint")
+    else:
+        click.secho("No PGP keys found", fg="red")
+        fingerprint = ""
+    config = ConfigParser()
+    config.read(config_path)
+    config["DEFAULT"] = {
+        "name": name,
+        "email": email,
+        "fingerprint": fingerprint,
+    }
+
+    # Taken from https://stackoverflow.com/a/12517490
+    if not os.path.exists(os.path.dirname(config_path)):
+        try:
+            os.makedirs(os.path.dirname(config_path))
+        except OSError as exc:  # Guard against race condition
+            if exc.errno != errno.EEXIST:
+                raise
+
+    with open(config_path, "w") as config_file:
+        config.write(config_file)
+
+
+def get_gpg_keys_for_email(email):
+    """Given an email address, return all local keys."""
+    gpg = gnupg.GPG()
+    gpg.encoding = "utf-8"
+    keys = gpg.list_keys()
+    out_keys = []
+    for key in keys:
+        for uid in key.get("uids"):
+            if email in uid:
+                out_keys.append(key)
+    return out_keys
+
 
 @click.group(help=HELP_TEXT)
 @click.version_option(__version__, message="%(version)s")
@@ -39,9 +103,9 @@ ALLOWED_KEYS = [
 @click.option(
     "--config",
     "-c",
-    type=click.Path(exists=True),
-    default=os.path.join(os.environ.get("HOME"), ".config/mtls/config.ini"),
-    help="config file. [~/.config/mtls/config.ini]",
+    type=click.Path(),
+    default=os.path.join(HOME, "mtls/config.ini"),
+    help=f"config file. [{HOME}/mtls/config.ini]",
 )
 @click.option("--gpg-password", type=str, hidden=True)
 @click.pass_context
@@ -55,12 +119,27 @@ def cli(ctx, server, config, gpg_password):
         click.secho("Your platform is not currently supported", fg="red")
 
 
+@cli.command(help="Initialize")
+@click.pass_context
+def init(ctx):
+    initial_setup(ctx.obj.get("config_path"))
+    while True:
+        add_new_server = (
+            input("Would you like to add a server? (y/n) ").lower().strip()
+        )
+        if add_new_server[:1] == "y":
+            server_name = input("Nickname for server: ")
+            ctx.invoke(add_server, name=server_name)
+        else:
+            break
+
+
 @cli.command(help="Manage config")
 @click.argument("key")
 @click.argument("value")
 @click.pass_context
 def config(ctx, key, value):
-    AK_MSG = "Your key must be in the allowed keys, available options are: {}"
+    AK_MSG = f"Your key must be in the allowed keys, available options are: {ALLOWED_KEYS}"
     # Deal with not actually instanting the MutualTLS class.
     try:
         server = ctx.obj.server or "DEFAULT"
@@ -69,8 +148,20 @@ def config(ctx, key, value):
         server = ctx.obj["server"]
         config_path = ctx.obj["config_path"]
 
+    if not os.path.exists(config_path):
+        if config_path != f"{HOME}/mtls/config.ini":
+            click.secho(
+                f"Config file not found, please run `mtls -c {config_path} init`",
+                fg="red",
+            )
+        else:
+            click.secho(
+                "Config file not found, please run `mtls init`", fg="red"
+            )
+        sys.exit(1)
+
     if key not in ALLOWED_KEYS:
-        click.secho(AK_MSG.format(",".join(ALLOWED_KEYS)), fg="red")
+        click.secho(AK_MSG, fg="red")
         sys.exit(1)
     if server == "DEFAULT" and key == "url":
         click.secho(
@@ -101,8 +192,7 @@ def add_server(ctx, name):
         sys.exit(1)
     config_path = ctx.obj["config_path"]
     value = click.prompt(
-        "What is the url of the Certificate Authority? (ie. "
-        + "https://certauth.example.com)"
+        "What is the url of the Certificate Authority? (ie. https://certauth.example.com)"
     )
     config = ConfigParser()
     config.read(config_path)
@@ -205,8 +295,7 @@ def revoke_certificate(ctx, fingerprint, serial_number, name):
     "-o/-no",
     is_flag=True,
     default=True,
-    help="Output to stdout. Otherwise this will write to "
-    + "~/.config/mtls/<server>/crl.pem",
+    help=f"Output to stdout. Otherwise this will write to {HOME}/mtls/<server>/crl.pem",
 )
 @click.pass_context
 def get_crl(ctx, output):

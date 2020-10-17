@@ -37,7 +37,7 @@ def getListOfFiles(dirName):
 
 
 logging.disable(logging.CRITICAL)
-MTLS_SERVER_VERSION = os.environ.get("MTLS_SERVER_VERSION") or "v0.16.3"
+MTLS_SERVER_VERSION = os.environ.get("MTLS_SERVER_VERSION") or "v0.17.0"
 MTLS_IMAGE = os.environ.get("MTLS_IMAGE") or "drgrove/mtls-server"
 
 
@@ -212,9 +212,15 @@ class TestCliBase(unittest.TestCase):
             ports={"4000/tcp": 4000},
         )
         while True:
-            resp = requests.get("http://localhost:4000/version")
-            if resp.status_code == 200:
-                break
+            try:
+                resp = requests.get("http://localhost:4000/version")
+                if resp.status_code == 200:
+                    break
+            except:
+                # requests throws an error now if the connection is reset
+                # we don't care about it, we're just waiting for the server
+                # to come up
+                pass
         cls.HOME = tempfile.TemporaryDirectory(dir=TMPDIR_PREFIX)
         cls.env = {
             "GNUPGHOME": cls.ADMIN_GNUPGHOME.name,
@@ -241,6 +247,7 @@ class TestCliBase(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.server.stop()
+        cls.docker.close()
         cls.USER_GNUPGHOME.cleanup()
         cls.ADMIN_GNUPGHOME.cleanup()
         cls.seed_dir.cleanup()
@@ -698,6 +705,14 @@ class TestCliAsUser(TestCliBase):
 
     def test_show_help(self):
         result = self.runner.invoke(cli, ["--help"])
+        self.assertEqual(result.exit_code, 0, msg=result.exc_info)
+
+    def test_init(self):
+        result = self.runner.invoke(
+            cli,
+            ["-c", f"{self.HOME.name}/config2.ini", "init"],
+            input="Test User\njohndoe@example.com\n1\nn",
+        )
         self.assertEqual(result.exit_code, 0, msg=result.exc_info)
 
     def test_create_certificate(self):

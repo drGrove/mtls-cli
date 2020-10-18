@@ -52,7 +52,9 @@ class MutualTLS:
         if options["config"] is None:
             self.CONFIG_FOLDER_PATH = f"{self.HOME}/.config/mtls"
             self.CONFIG_FILE = "config.ini"
-            self.config_file_path = f"{self.CONFIG_FOLDER_PATH}/{self.CONFIG_FILE}"
+            self.config_file_path = (
+                f"{self.CONFIG_FOLDER_PATH}/{self.CONFIG_FILE}"
+            )
         else:
             self.CONFIG_FOLDER_PATH = "/".join(
                 options["config"].split("/")[:-1]
@@ -79,7 +81,9 @@ class MutualTLS:
         self.BASE_SERVER_PATH = f"{self.CONFIG_FOLDER_PATH}/{self.server}"
         self.pfx_path = f"{self.BASE_SERVER_PATH}/{self.server}.pfx"
         self.cert_file_path = f"{self.BASE_SERVER_PATH}/{self.server}.pem"
-        self.ca_cert_file_path = f"{self.BASE_SERVER_PATH}/{self.server}_Root_CA.pem"
+        self.ca_cert_file_path = (
+            f"{self.BASE_SERVER_PATH}/{self.server}_Root_CA.pem"
+        )
         self.crl_file_path = f"{self.BASE_SERVER_PATH}/crl.pem"
 
     def check_revoked(self, cert):
@@ -565,9 +569,11 @@ class MutualTLS:
                 )
 
     def _get_certdb_paths(self):
-        paths = [
-            self._primary_certdb_location()
-        ] + self._firefox_certdb_location() + self._chrome_certdb_location()
+        paths = (
+            [self._primary_certdb_location()]
+            + self._firefox_certdb_location()
+            + self._chrome_certdb_location()
+        )
         return paths
 
     def _primary_certdb_location(self):

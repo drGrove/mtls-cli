@@ -13,16 +13,16 @@ endif
 
 .PHONY: shell
 shell:
-	@pipenv shell
+	pipenv shell
 
 .PHONY: setup
 setup: set-hooks
-	@pipenv sync --dev
+	pipenv sync --dev
 
 .PHONY: pipenv-lock
 pipenv-lock:
-	@pipenv update
-	@pipenv lock -r > requirements.txt
+	pipenv update
+	pipenv lock -r > requirements.txt
 
 .PHONY: set-hooks
 set-hooks:
@@ -33,49 +33,49 @@ set-hooks:
 
 .PHONY: format
 format:
-	@pipenv run black -l 79 ./mtls/*.py
-	@pipenv run black -l 79 ./test/*.py
+	pipenv run black -l 79 ./mtls/*.py
+	pipenv run black -l 79 ./test/*.py
 
 .PHONY: lint
 lint:
-	@pipenv run pycodestyle **/*.py
+	pipenv run pycodestyle **/*.py
 
 .PHONY: build-develop
 build-develop:
-	@pipenv run python setup.py develop
+	pipenv run python setup.py develop
 
 .PHONY: build-pypi
 build-pypi:
-	@pipenv run python setup.py sdist bdist_wheel
+	pipenv run python setup.py sdist bdist_wheel
 
 .PHONY: build
 build: setup
-	@pipenv run python setup.py build
+	pipenv run python setup.py build
 
 .PHONY: run
 run:
-	@pipenv run python3 bin/mtls $(ARGS)
+	pipenv run python3 bin/mtls $(ARGS)
 
 .PHONY: test
 test: setup
-	-@$(PIP_ENV)/bin/coverage run -m unittest -v
+	pipenv run coverage run -m unittest -v
 
 .PHONY: test-by-name
 test-by-name:
-	-@$(PIP_ENV)/bin/coverage run -m unittest $(TEST) -v
+	pipenv run python3 -m coverage run -m unittest $(TEST) -v
 
 .PHONY: coverage
 coverage:
-	@$(PIP_ENV)/bin/coverage report -m
+	pipenv run coverage report -m
 
 .PHONY: coveralls
 coveralls:
-	@$(PIP_ENV)/bin/coveralls
+	pipenv run coveralls
 
 .PHONY: pkg
 pkg: build
-	@pipenv run python setup.py sdist bdist_wheel
+	pipenv run python setup.py sdist bdist_wheel
 
 .PHONY: clean
 clean:
-	@rm -r build dist $(PIP_ENV) mtls-$(UNAME)
+	rm -r build dist $(PIP_ENV) mtls-$(UNAME)

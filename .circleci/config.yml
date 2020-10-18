@@ -36,7 +36,7 @@ commands:
           name: Setup
           command: mkdir -p << parameters.dir >>
           environment:
-            TMPDIR: << parameters.dir >>
+            TMP_DIR: << parameters.dir >>
       - run:
           name: Test
           command: make test
@@ -54,8 +54,6 @@ commands:
       - run:
           name: Brew Install
           command: |
-            brew upgrade
-            brew update
             brew install python3 gnupg pipenv || true
 
 executors:
@@ -185,14 +183,14 @@ workflows:
           <<: *filter_all_tags
           requires:
             - init
-      # - test:
-      #     <<: *filter_all_tags
-      #     requires:
-      #     - init
-      # - test-macos:
-      #     <<: *filter_all_tags
-      #     requires:
-      #     - init
+      - test:
+          <<: *filter_all_tags
+          requires:
+          - init
+      - test-macos:
+          <<: *filter_all_tags
+          requires:
+          - init
       - build-package-pypi:
           <<: *filter_all_tags
           requires:

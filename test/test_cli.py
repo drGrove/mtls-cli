@@ -216,7 +216,7 @@ class TestCliBase(unittest.TestCase):
                 resp = requests.get("http://localhost:4000/version")
                 if resp.status_code == 200:
                     break
-            except:
+            except Exception:
                 # requests throws an error now if the connection is reset
                 # we don't care about it, we're just waiting for the server
                 # to come up

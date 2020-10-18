@@ -48,7 +48,7 @@ def initial_setup(config_path):
             expires = datetime.utcfromtimestamp(
                 int(key.get("expires"))
             ).strftime("%Y-%m-%d")
-        except:
+        except Exception:
             expires = "Never"
         click.secho(
             f"{idx + 1}) {key.get('keyid')} - Created: {created} Expires: {expires}"

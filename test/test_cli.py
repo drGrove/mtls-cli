@@ -1156,3 +1156,38 @@ class TestCliOptionalConfigItems(TestCliBase):
         if result.exception:
             traceback.print_exception(*result.exc_info)
         self.assertEqual(result.exit_code, 0, msg=result.exc_info)
+
+class TestCliNoConfig(TestCliBase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.env = {
+            "GNUPGHOME": cls.USER_GNUPGHOME.name,
+            "HOME": cls.HOME.name,
+            "XDG_CONFIG_HOME": f"{cls.HOME.name}/.config",
+            "USER": "test",
+            "HOST": str(platform.uname()[1]),
+        }
+        cls.runner = CliRunner(env=cls.env)
+        cls.config["DEFAULT"] = {
+            "name": "John Doe",
+            "email": "johndoe@example.com",
+            "fingerprint": cls.user.pgp_key.fingerprint,
+            "organization_name": "My Org",
+        }
+
+    def test_add_config_missing_file(self):
+        config_path = f"{self.env['XDG_CONFIG_HOME']}/mtls/config.ini"
+        result = self.runner.invoke(
+            cli,
+            [
+                "-c",
+                config_path,
+                "config",
+                "name",
+                "\"Test User\""
+            ]
+        )
+        if result.exception:
+            traceback.print_exception(*result.exc_info)
+        self.assertEqual(result.exit_code, 0, msg=result.exc_info)

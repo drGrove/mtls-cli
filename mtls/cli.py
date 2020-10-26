@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import pathlib
 import sys
 from configparser import ConfigParser
 from datetime import datetime
@@ -104,7 +105,7 @@ def get_gpg_keys_for_email(email):
     "--config",
     "-c",
     type=click.Path(),
-    default=os.path.join(HOME, "mtls/config.ini"),
+    default=os.path.join(HOME, "/mtls/config.ini"),
     help=f"config file. [{HOME}/mtls/config.ini]",
 )
 @click.option("--gpg-password", type=str, hidden=True)
@@ -149,16 +150,12 @@ def config(ctx, key, value):
         config_path = ctx.obj["config_path"]
 
     if not os.path.exists(config_path):
-        if config_path != f"{HOME}/mtls/config.ini":
-            click.secho(
-                f"Config file not found, please run `mtls -c {config_path} init`",
-                fg="red",
-            )
-        else:
-            click.secho(
-                "Config file not found, please run `mtls init`", fg="red"
-            )
-        sys.exit(1)
+        config = ConfigParser()
+        config["DEFAULT"] = {}
+        config_dir = pathlib.Path(config_path).parent
+        config_dir.mkdir(parents=True, exist_ok=True)
+        with open(config_path, "w") as config_file:
+            config.write(config_file)
 
     if key not in ALLOWED_KEYS:
         click.secho(AK_MSG, fg="red")

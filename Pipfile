@@ -11,7 +11,7 @@ docker = "==4.3.1"
 
 [packages]
 click = "==7.1.2"
-cryptography = "==3.1.1"
+cryptography = "==3.2"
 pyOpenSSL = "==19.1.0"
 pycodestyle = "==2.6.0"
 python-gnupg = "==0.4.6"

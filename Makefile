@@ -78,4 +78,4 @@ pkg: build
 
 .PHONY: clean
 clean:
-	@rm -r build dist $(PIP_ENV) mtls-$(UNAME)
+	@rm -r build dist mtls.egg-info .eggs $(PIP_ENV)

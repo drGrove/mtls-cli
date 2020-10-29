@@ -19,8 +19,8 @@ shell:
 setup: set-hooks
 	@pipenv sync --dev
 
-.PHONY: pipenv-lock
-pipenv-lock:
+.PHONY: requirements.txt
+requirements.txt:
 	@pipenv update
 	@pipenv lock -r > requirements.txt
 

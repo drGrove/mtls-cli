@@ -105,12 +105,13 @@ def get_gpg_keys_for_email(email):
     "--config",
     "-c",
     type=click.Path(),
-    default=os.path.join(HOME, "/mtls/config.ini"),
+    default=f"{HOME}/mtls/config.ini",
     help=f"config file. [{HOME}/mtls/config.ini]",
 )
 @click.option("--gpg-password", type=str, hidden=True)
 @click.pass_context
 def cli(ctx, server, config, gpg_password):
+    print(config)
     options = {"config": config, "gpg_password": gpg_password}
     if server is not None:
         ctx.obj = MutualTLS(server, options)

@@ -365,15 +365,17 @@ class TestCliAsAdmin(TestCliBase):
                 "certificate",
                 "create",
                 "-o",
-                self.HOME.name + "/me.pfx",
+                "{}/me.pfx".format(self.HOME.name),
             ],
         )
         self.assertEqual(result.exit_code, 0, msg=result.exc_info)
         self.assertTrue(
-            os.path.isfile("{}/{}".format(self.HOME.name, "me.pfx"))
+            os.path.isfile("{}/{}".format(self.HOME.name, "me.pfx")),
+            msg="Expected file to exist: {}/{}".format(self.HOME.name, "me.pfx")
         )
         self.assertTrue(
-            os.path.isfile("{}/{}".format(self.HOME.name, "me.password.asc"))
+            os.path.isfile("{}/{}".format(self.HOME.name, "me.password.asc")),
+            msg="Expected file to exist: {}/{}".format(self.HOME.name, "me.password.asc")
         )
 
     def test_revoke_certificate(self):

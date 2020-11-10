@@ -86,6 +86,7 @@ class MutualTLS:
         )
         self.crl_file_path = f"{self.BASE_SERVER_PATH}/crl.pem"
 
+
     def check_revoked(self, cert):
         with open(self.crl_file_path, "rb") as f:
             crl = x509.load_pem_x509_crl(
@@ -105,7 +106,7 @@ class MutualTLS:
             self.override = True
         self._create_db()
         cert = None
-        if not self._has_root_cert():
+        if not self._has_root_cert() or output:
             self._get_and_set_root_cert()
         if sys.platform == "darwin":
             (valid, exists, revoked) = self.check_valid_cert(
@@ -140,13 +141,14 @@ class MutualTLS:
             sys.exit(1)
         cert = self.convert_to_cert(cert_str)
         try:
-            with open(self.cert_file_path, "w") as cert_file:
-                click.echo("Writing file to {}".format(self.cert_file_path))
-                cert_file.write(
-                    cert.public_bytes(serialization.Encoding.PEM).decode(
-                        "utf-8"
+            if not output:
+                with open(self.cert_file_path, "w") as cert_file:
+                    click.echo("Writing file to {}".format(self.cert_file_path))
+                    cert_file.write(
+                        cert.public_bytes(serialization.Encoding.PEM).decode(
+                            "utf-8"
+                        )
                     )
-                )
         except Exception as e:
             click.secho(
                 "Could not write certificate to {}".format(
@@ -157,7 +159,7 @@ class MutualTLS:
         if cert is None:
             click.echo("Could not convert to certificate")
             sys.exit(1)
-        p12 = OpenSSL.crypto.PKCS12()
+        p12 = OpenSSL.crypto.PKCS12Type()
         pkey = OpenSSL.crypto.PKey.from_cryptography_key(key)
         fpbytes = cert.fingerprint(hashes.SHA1())
         fp = binascii.hexlify(fpbytes)
@@ -166,22 +168,27 @@ class MutualTLS:
                 "current_sha", fp.decode("UTF-8"), self.server
             )
         certificate = OpenSSL.crypto.X509.from_cryptography(cert)
+        ca_certificate = OpenSSL.crypto.X509.from_cryptography(
+            self.ca_certificate
+        )
         p12.set_privatekey(pkey)
         p12.set_certificate(certificate)
+        p12.set_ca_certificates(iter([ca_certificate]))
         p12.set_friendlyname(bytes(self.friendly_name, "UTF-8"))
         pwd = self._genPW()
         if output:
             self.pfx_path = output
             pw = self.encrypt(pwd, self.config.get(self.server, "fingerprint"))
             pfx_base = "/".join(self.pfx_path.split("/")[:-1])
-            pw_file = self.pfx_path.split("/")[-1].split(".")[:-1]
-            pw_file += ".password.asc"
+            pfx_file_base = self.pfx_path.split("/")[-1].split(".")[:-1]
+            pw_file = "{}.password.asc".format(pfx_file_base[0])
             pw_file = "".join(pw_file)
             pw_file = "{}/{}".format(pfx_base, pw_file)
             with open(pw_file, "wb") as pwfile:
                 click.echo("Writing password to: {}".format(pw_file))
                 pwfile.write(str(pw).encode("UTF-8"))
         with open(self.pfx_path, "wb") as f:
+            click.echo("Writing pfx to: {}".format(self.pfx_path))
             f.write(p12.export(passphrase=bytes(pwd, "UTF-8")))
         if not output:
             self.update_cert_storage(self.pfx_path, pwd)
@@ -232,6 +239,7 @@ class MutualTLS:
         # the user and subsequent calls later.
         with open(self.ca_cert_file_path, "w") as ca_cert:
             ca_cert.write(data["cert"])
+        self.ca_certificate = self.get_cert_from_file(self.ca_cert_file_path)
         self.add_root_ca_to_store(self.ca_cert_file_path)
 
     def add_root_ca_to_store(self, ca_cert_file_path):
@@ -405,8 +413,10 @@ class MutualTLS:
                     revoked = self.check_revoked(self.get_cert_from_file())
         return is_valid, cert_exists, revoked
 
-    def get_cert_from_file(self):
-        with open(self.cert_file_path, "rb") as cert_file:
+    def get_cert_from_file(self, cert_file_path=None):
+        if not cert_file_path:
+            cert_file_path = self.cert_file_path
+        with open(cert_file_path, "rb") as cert_file:
             return x509.load_pem_x509_certificate(
                 cert_file.read(), default_backend()
             )

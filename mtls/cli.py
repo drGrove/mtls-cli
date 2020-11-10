@@ -266,6 +266,13 @@ def create_certificate(
         options.update(organization=organization)
     if common_name:
         options.update(common_name=common_name)
+    if output:
+        if not output.endswith(('pfx', 'p12')):
+            click.secho("Output path must end in pfx or p12")
+            sys.exit(1)
+        if not output.startswith(('.', '/')):
+            click.secho("Output path must be a valid path")
+            sys.exit(1)
     ctx.obj.get_crl(False)
     ctx.obj.set_user_options(options)
     ctx.obj.create_cert(output)

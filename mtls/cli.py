@@ -32,7 +32,10 @@ ALLOWED_KEYS = [
     "url",
 ]
 
-HOME = os.environ.get("XDG_CONFIG_HOME", os.environ.get("HOME") + ".config/")
+HOME = os.environ.get(
+    "XDG_CONFIG_HOME",
+    os.path.join(os.environ.get("HOME"), ".config")
+)
 
 
 def initial_setup(config_path):
@@ -111,7 +114,6 @@ def get_gpg_keys_for_email(email):
 @click.option("--gpg-password", type=str, hidden=True)
 @click.pass_context
 def cli(ctx, server, config, gpg_password):
-    print(config)
     options = {"config": config, "gpg_password": gpg_password}
     if server is not None:
         ctx.obj = MutualTLS(server, options)

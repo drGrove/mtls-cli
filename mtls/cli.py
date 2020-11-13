@@ -114,11 +114,17 @@ def get_gpg_keys_for_email(email):
 @click.option("--gpg-password", type=str, hidden=True)
 @click.pass_context
 def cli(ctx, server, config, gpg_password):
-    options = {"config": config, "gpg_password": gpg_password}
+    ctx.ensure_object(dict)
+    ctx.obj["config"] = ConfigParser()
+    ctx.obj["config"]["DEFAULT"] = {}
+    ctx.obj["config"].read(config)
+    ctx.obj["server"] = server or "DEFAULT"
+    ctx.obj["config_file_path"] = config
+
     if server is not None:
-        ctx.obj = MutualTLS(server, options)
-    else:
-        ctx.obj = {"config_path": config, "server": server or "DEFAULT"}
+        options = {"config": config, "gpg_password": gpg_password}
+        ctx.obj["mtls"] = MutualTLS(server, options)
+
     if sys.platform == "win32" or sys.platform == "cygwin":
         click.secho("Your platform is not currently supported", fg="red")
 
@@ -126,7 +132,7 @@ def cli(ctx, server, config, gpg_password):
 @cli.command(help="Initialize")
 @click.pass_context
 def init(ctx):
-    initial_setup(ctx.obj.get("config_path"))
+    initial_setup(ctx.obj["config_file_path"])
     while True:
         add_new_server = (
             input("Would you like to add a server? (y/n) ").lower().strip()
@@ -144,21 +150,14 @@ def init(ctx):
 @click.pass_context
 def config(ctx, key, value):
     AK_MSG = f"Your key must be in the allowed keys, available options are: {ALLOWED_KEYS}"
-    # Deal with not actually instanting the MutualTLS class.
-    try:
-        server = ctx.obj.server or "DEFAULT"
-        config_path = ctx.obj.config_file_path
-    except Exception as err:
-        server = ctx.obj["server"]
-        config_path = ctx.obj["config_path"]
+    server = ctx.obj["server"]
+    config_file_path = ctx.obj["config_file_path"]
 
-    if not os.path.exists(config_path):
-        config = ConfigParser()
-        config["DEFAULT"] = {}
-        config_dir = pathlib.Path(config_path).parent
+    if not os.path.exists(config_file_path):
+        config_dir = pathlib.Path(config_file_path).parent
         config_dir.mkdir(parents=True, exist_ok=True)
-        with open(config_path, "w") as config_file:
-            config.write(config_file)
+        with open(config_file_path, "w") as config_file:
+            ctx.obj["config"].write(config_file)
 
     if key not in ALLOWED_KEYS:
         click.secho(AK_MSG, fg="red")
@@ -168,11 +167,9 @@ def config(ctx, key, value):
             "url is not a valid config when no server is set", fg="red"
         )
         sys.exit(1)
-    config = ConfigParser()
-    config.read(config_path)
-    config.set(server, key, value)
-    with open(config_path, "w") as config_file:
-        config.write(config_file)
+    ctx.obj["config"].set(server, key, value)
+    with open(ctx.obj["config_file_path"], "w") as config_file:
+        ctx.obj["config"].write(config_file)
 
 
 @click.group(help="Manage Servers")
@@ -190,25 +187,19 @@ def add_server(ctx, name):
     if " " in name:
         click.secho("Server name cannot have space in it.", fg="red")
         sys.exit(1)
-    config_path = ctx.obj["config_path"]
     value = click.prompt(
         "What is the url of the Certificate Authority? (ie. https://certauth.example.com)"
     )
-    config = ConfigParser()
-    config.read(config_path)
-    config.add_section(name)
-    config.set(name, "url", value)
-    with open(config_path, "w") as config_file:
-        config.write(config_file)
+    ctx.obj["config"].add_section(name)
+    ctx.obj["config"].set(name, "url", value)
+    with open(ctx.obj["config_file_path"], "w") as config_file:
+        ctx.obj["config"].write(config_file)
 
 
 @server.command("list", help="List servers")
 @click.pass_context
 def list_servers(ctx):
-    config_path = ctx.obj["config_path"]
-    config = ConfigParser()
-    config.read(config_path)
-    for server_name, section in config.items():
+    for server_name, section in ctx.obj["config"].items():
         if server_name != 'DEFAULT':
             click.echo(server_name)
 
@@ -222,12 +213,9 @@ def remove_server(ctx, name):
     if " " in name:
         click.secho("Server name cannot have space in it.", fg="red")
         sys.exit(1)
-    config_path = ctx.obj["config_path"]
-    config = ConfigParser()
-    config.read(config_path)
-    config.remove_section(name)
-    with open(config_path, "w") as config_file:
-        config.write(config_file)
+    ctx.obj["config"].remove_section(name)
+    with open(ctx.obj["config_file_path"], "w") as config_file:
+        ctx.obj["config"].write(config_file)
 
 
 @click.group(help="Manage Certificates")
@@ -265,7 +253,7 @@ def create_certificate(
     ctx, output, friendly_name, user_email, organization, common_name
 ):
     options = {}
-    if not isinstance(ctx.obj, MutualTLS):
+    if not isinstance(ctx.obj["mtls"], MutualTLS):
         click.secho("A server was not provided.", fg="red")
         sys.exit(1)
     if friendly_name:
@@ -279,9 +267,9 @@ def create_certificate(
         options.update(organization=organization)
     if common_name:
         options.update(common_name=common_name)
-    ctx.obj.get_crl(False)
-    ctx.obj.set_user_options(options)
-    ctx.obj.create_cert(output)
+    ctx.obj["mtls"].get_crl(False)
+    ctx.obj["mtls"].set_user_options(options)
+    ctx.obj["mtls"].create_cert(output)
 
 
 @certificate.command("revoke", help="Revoke a certificate for a given server.")
@@ -294,10 +282,10 @@ def create_certificate(
 )
 @click.pass_context
 def revoke_certificate(ctx, fingerprint, serial_number, name):
-    if not isinstance(ctx.obj, MutualTLS):
+    if not isinstance(ctx.obj["mtls"], MutualTLS):
         click.secho("A server was not provided.", fg="red")
         sys.exit(1)
-    ctx.obj.revoke_cert(fingerprint, serial_number, name)
+    ctx.obj["mtls"].revoke_cert(fingerprint, serial_number, name)
 
 
 @certificate.command("crl", help="Get the CRL for a given server")
@@ -310,10 +298,10 @@ def revoke_certificate(ctx, fingerprint, serial_number, name):
 )
 @click.pass_context
 def get_crl(ctx, output):
-    if not isinstance(ctx.obj, MutualTLS):
+    if not isinstance(ctx.obj["mtls"], MutualTLS):
         click.secho("A server was not provided.", fg="red")
         sys.exit(1)
-    ctx.obj.get_crl(output)
+    ctx.obj["mtls"].get_crl(output)
 
 
 @click.group(help="Manage Users")
@@ -341,7 +329,7 @@ def user(ctx):
 )
 @click.pass_context
 def add_user(ctx, admin, fingerprint, email, keyserver):
-    if not isinstance(ctx.obj, MutualTLS):
+    if not isinstance(ctx.obj["mtls"], MutualTLS):
         click.secho("A server was not provided.", fg="red")
         sys.exit(1)
     if fingerprint is None and email is None:
@@ -349,7 +337,7 @@ def add_user(ctx, admin, fingerprint, email, keyserver):
         sys.exit(1)
     if email is not None:
         fingerprint = handle_email(ctx, email, keyserver)
-    ctx.obj.add_user(fingerprint, admin)
+    ctx.obj["mtls"].add_user(fingerprint, admin)
 
 
 @user.command("remove", help="Remove a user (Admin Required).")
@@ -371,7 +359,7 @@ def add_user(ctx, admin, fingerprint, email, keyserver):
 )
 @click.pass_context
 def remove_user(ctx, admin, fingerprint, email, keyserver):
-    if not isinstance(ctx.obj, MutualTLS):
+    if not isinstance(ctx.obj["mtls"], MutualTLS):
         click.secho("A server was not provided.", fg="red")
         sys.exit(1)
     if fingerprint is None and email is None:
@@ -380,14 +368,14 @@ def remove_user(ctx, admin, fingerprint, email, keyserver):
     if email is not None:
         fingerprint = handle_email(ctx, email, keyserver)
 
-    ctx.obj.remove_user(fingerprint, admin)
+    ctx.obj["mtls"].remove_user(fingerprint, admin)
 
 
 def handle_email(ctx, email, keyserver=None):
     if keyserver:
-        search_res = ctx.obj.gpg.search_keys(email, keyserver=keyserver)
+        search_res = ctx.obj["mtls"].gpg.search_keys(email, keyserver=keyserver)
     else:
-        search_res = ctx.obj.gpg.search_keys(email)
+        search_res = ctx.obj["mtls"].gpg.search_keys(email)
     now = str(int(datetime.now().timestamp()))
     non_expired = []
     for res in search_res:

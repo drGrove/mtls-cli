@@ -18,6 +18,14 @@ HELP_TEXT = (
     f"Authentication. Version {__version__}"
 )
 
+CONTEXT_SETTINGS = {
+    "obj": {
+        "config": ConfigParser(),
+        "server": "DEFAULT",
+    },
+}
+CONTEXT_SETTINGS["obj"]["config"]["DEFAULT"] = {}
+
 ALLOWED_KEYS = [
     "name",
     "email",
@@ -99,7 +107,10 @@ def get_gpg_keys_for_email(email):
     return out_keys
 
 
-@click.group(help=HELP_TEXT)
+@click.group(
+    context_settings=CONTEXT_SETTINGS,
+    help=HELP_TEXT,
+)
 @click.version_option(__version__, message="%(version)s")
 @click.option(
     "--server", "-s", type=str, help="Server to run command against."
@@ -114,14 +125,11 @@ def get_gpg_keys_for_email(email):
 @click.option("--gpg-password", type=str, hidden=True)
 @click.pass_context
 def cli(ctx, server, config, gpg_password):
-    ctx.ensure_object(dict)
-    ctx.obj["config"] = ConfigParser()
-    ctx.obj["config"]["DEFAULT"] = {}
-    ctx.obj["config"].read(config)
-    ctx.obj["server"] = server or "DEFAULT"
     ctx.obj["config_file_path"] = config
+    ctx.obj["config"].read(config)
 
     if server is not None:
+        ctx.obj["server"] = server
         options = {"config": config, "gpg_password": gpg_password}
         ctx.obj["mtls"] = MutualTLS(server, options)
 

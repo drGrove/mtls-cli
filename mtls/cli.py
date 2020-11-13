@@ -107,13 +107,28 @@ def get_gpg_keys_for_email(email):
     return out_keys
 
 
+def get_servers(ctx, args, incomplete):
+    config = ConfigParser()
+    config_path = ctx.params["config"]
+    if config_path is None:
+        # XXX: should be able to get the default value here
+        # config_path = ctx.lookup_default("config")
+        config_path = f"{HOME}/mtls/config.ini"
+
+    config.read(config_path)
+    return [name for name, section in config.items() if name != 'DEFAULT' if incomplete in name]
+
 @click.group(
     context_settings=CONTEXT_SETTINGS,
     help=HELP_TEXT,
 )
 @click.version_option(__version__, message="%(version)s")
 @click.option(
-    "--server", "-s", type=str, help="Server to run command against."
+    "--server",
+    "-s",
+    type=str,
+    help="Server to run command against.",
+    autocompletion=get_servers,
 )
 @click.option(
     "--config",

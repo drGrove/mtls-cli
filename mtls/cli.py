@@ -118,6 +118,7 @@ def get_servers(ctx, args, incomplete):
     config.read(config_path)
     return [name for name, section in config.items() if name != 'DEFAULT' if incomplete in name]
 
+
 @click.group(
     context_settings=CONTEXT_SETTINGS,
     help=HELP_TEXT,

@@ -1098,21 +1098,24 @@ class TestCliOptions(TestCliBase):
         self.assertFalse(config.has_section("foo"))
 
     def test_set_user_config(self):
+        new_org = "My New Org"
         result = self.runner.invoke(
             cli,
             [
                 "-c",
                 self.config_path,
+                "-s",
+                "test",
                 "config",
                 "organization_name",
-                "My New Org",
+                new_org,
             ],
         )
         self.assertEqual(result.exit_code, 0, msg=result.exc_info)
         config = ConfigParser()
         config.read(self.config_path)
         self.assertEqual(
-            config.get("DEFAULT", "organization_name"), "My New Org"
+            config.get("test", "organization_name"), new_org
         )
 
 
@@ -1156,6 +1159,7 @@ class TestCliOptionalConfigItems(TestCliBase):
         if result.exception:
             traceback.print_exception(*result.exc_info)
         self.assertEqual(result.exit_code, 0, msg=result.exc_info)
+
 
 class TestCliNoConfig(TestCliBase):
     @classmethod

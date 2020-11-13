@@ -1098,22 +1098,23 @@ class TestCliOptions(TestCliBase):
         self.assertFalse(config.has_section("foo"))
 
     def test_set_user_config(self):
+        new_org = "My New Org"
         result = self.runner.invoke(
             cli,
             [
                 "-c",
                 self.config_path,
+                "-s",
+                "test",
                 "config",
                 "organization_name",
-                "My New Org",
+                new_org,
             ],
         )
         self.assertEqual(result.exit_code, 0, msg=result.exc_info)
         config = ConfigParser()
         config.read(self.config_path)
-        self.assertEqual(
-            config.get("DEFAULT", "organization_name"), "My New Org"
-        )
+        self.assertEqual(config.get("test", "organization_name"), new_org)
 
 
 class TestCliOptionalConfigItems(TestCliBase):
@@ -1157,6 +1158,7 @@ class TestCliOptionalConfigItems(TestCliBase):
             traceback.print_exception(*result.exc_info)
         self.assertEqual(result.exit_code, 0, msg=result.exc_info)
 
+
 class TestCliNoConfig(TestCliBase):
     @classmethod
     def setUpClass(cls):
@@ -1179,14 +1181,7 @@ class TestCliNoConfig(TestCliBase):
     def test_add_config_missing_file(self):
         config_path = f"{self.env['XDG_CONFIG_HOME']}/mtls/config.ini"
         result = self.runner.invoke(
-            cli,
-            [
-                "-c",
-                config_path,
-                "config",
-                "name",
-                "\"Test User\""
-            ]
+            cli, ["-c", config_path, "config", "name", '"Test User"']
         )
         if result.exception:
             traceback.print_exception(*result.exc_info)

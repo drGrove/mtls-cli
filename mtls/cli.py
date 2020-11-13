@@ -41,8 +41,7 @@ ALLOWED_KEYS = [
 ]
 
 HOME = os.environ.get(
-    "XDG_CONFIG_HOME",
-    os.path.join(os.environ.get("HOME"), ".config")
+    "XDG_CONFIG_HOME", os.path.join(os.environ.get("HOME"), ".config")
 )
 
 
@@ -116,7 +115,13 @@ def get_servers(ctx, args, incomplete):
         config_path = f"{HOME}/mtls/config.ini"
 
     config.read(config_path)
-    return [name for name, section in config.items() if name != 'DEFAULT' if incomplete in name]
+    return [
+        name
+        for name, section in config.items()
+        if name != "DEFAULT"
+        if incomplete in name
+    ]
+
 
 @click.group(
     context_settings=CONTEXT_SETTINGS,
@@ -223,7 +228,7 @@ def add_server(ctx, name):
 @click.pass_context
 def list_servers(ctx):
     for server_name, section in ctx.obj["config"].items():
-        if server_name != 'DEFAULT':
+        if server_name != "DEFAULT":
             click.echo(server_name)
 
 
@@ -396,7 +401,9 @@ def remove_user(ctx, admin, fingerprint, email, keyserver):
 
 def handle_email(ctx, email, keyserver=None):
     if keyserver:
-        search_res = ctx.obj["mtls"].gpg.search_keys(email, keyserver=keyserver)
+        search_res = ctx.obj["mtls"].gpg.search_keys(
+            email, keyserver=keyserver
+        )
     else:
         search_res = ctx.obj["mtls"].gpg.search_keys(email)
     now = str(int(datetime.now().timestamp()))

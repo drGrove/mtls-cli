@@ -202,6 +202,17 @@ def add_server(ctx, name):
         config.write(config_file)
 
 
+@server.command("list", help="List servers")
+@click.pass_context
+def list_servers(ctx):
+    config_path = ctx.obj["config_path"]
+    config = ConfigParser()
+    config.read(config_path)
+    for server_name, section in config.items():
+        if server_name != 'DEFAULT':
+            click.echo(server_name)
+
+
 @server.command("remove", help="Remove a server")
 @click.argument("name")
 @click.pass_context

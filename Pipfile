@@ -12,7 +12,7 @@ flake8 = "==3.8.4"
 
 [packages]
 click = "==7.1.2"
-cryptography = "==3.2"
+cryptography = "==3.3.2"
 pyOpenSSL = "==19.1.0"
 python-gnupg = "==0.4.6"
 requests = "==2.24.0"

@@ -4,7 +4,8 @@ desc = "A short-lived certificate tool based on the Zero Trust network mode"
 
 setup(
     name="mtls",
-    author="Danny Grove <danny@drgrovellc.com>",
+    author="Danny Grove",
+    author_email="danny@drgrovellc.com",
     url="https://github.com/drGrove/mtls-cli",
     description=desc,
     long_description=open("README.md").read(),

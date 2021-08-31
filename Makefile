@@ -19,6 +19,10 @@ shell:
 setup: set-hooks
 	@pipenv sync --dev
 
+.PHONY: Pipfile.lock
+Pipfile.lock:
+	@pipenv lock
+
 .PHONY: requirements.txt
 requirements.txt:
 	@echo "Generating requirements.txt"

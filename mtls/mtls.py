@@ -108,6 +108,9 @@ class MutualTLS:
         if not self._has_root_cert():
             self._get_and_set_root_cert()
         if sys.platform == "darwin":
+            # Keychain doesn't always add certificate if it's not previously
+            # locked and requests the user to unlock it.
+            self.lock_darwin_keychain()
             (valid, exists, revoked) = self.check_valid_cert(
                 name=self.cert_file_path
             )
@@ -277,6 +280,13 @@ class MutualTLS:
                 except Exception as e:
                     click.echo("Error")
                     click.echo(e)
+
+    def lock_darwin_keychain(self):
+        cmd = [
+            "security",
+            "lock-keychain"
+        ]
+        self._run_cmd(cmd, capture_output=True)
 
     def delete_cert_by_name(self, name):
         paths = self._get_certdb_paths()

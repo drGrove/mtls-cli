@@ -63,19 +63,19 @@ run:
 
 .PHONY: test
 test: setup
-	-@$(PIP_ENV)/bin/coverage run -m unittest -v
+	-@pipenv run coverage run -m unittest -v
 
 .PHONY: test-by-name
 test-by-name:
-	-@$(PIP_ENV)/bin/coverage run -m unittest $(TEST) -v
+	-@pipenv run coverage run -m unittest $(NAME) -v
 
 .PHONY: coverage
 coverage:
-	@$(PIP_ENV)/bin/coverage report -m
+	-@pipenv run coverage report -m
 
 .PHONY: coveralls
 coveralls:
-	@$(PIP_ENV)/bin/coveralls
+	@pipenv run coveralls
 
 .PHONY: pkg
 pkg: build

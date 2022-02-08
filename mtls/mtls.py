@@ -226,11 +226,13 @@ class MutualTLS:
         try:
             response = requests.get(f"{server_url}/ca")
             json_data = response.json()
-        except (requests.exceptions.ConnectionError,
-                requests.exceptions.ConnectTimeout):
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.ConnectTimeout,
+        ):
             click.secho(
                 "Connection error, service may be down or you may be disconnected from the internet. Bailing",
-                fg="red"
+                fg="red",
             )
             failure = True
         except JSONDecodeError:
@@ -299,10 +301,7 @@ class MutualTLS:
                     click.echo(e)
 
     def lock_darwin_keychain(self):
-        cmd = [
-            "security",
-            "lock-keychain"
-        ]
+        cmd = ["security", "lock-keychain"]
         self._run_cmd(cmd, capture_output=True)
 
     def delete_cert_by_name(self, name):
@@ -758,8 +757,12 @@ class MutualTLS:
             x509.NameAttribute(NameOID.ORGANIZATION_NAME, organization_name),
             x509.NameAttribute(NameOID.COMMON_NAME, self.friendly_name),
         ]
-        if self.config.getboolean(self.server, "sendEmailAsNameAttribute", fallback=False):
-            csr_subject_arr.append(x509.NameAttribute(NameOID.EMAIL_ADDRESS, email))
+        if self.config.getboolean(
+            self.server, "sendEmailAsNameAttribute", fallback=False
+        ):
+            csr_subject_arr.append(
+                x509.NameAttribute(NameOID.EMAIL_ADDRESS, email)
+            )
         if state:
             csr_subject_arr.append(
                 x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, state)
@@ -775,8 +778,7 @@ class MutualTLS:
         builder = x509.CertificateSigningRequestBuilder()
         builder = builder.subject_name(x509.Name(csr_subject_arr))
         builder = builder.add_extension(
-            x509.SubjectAlternativeName([x509.RFC822Name(email)]),
-            False
+            x509.SubjectAlternativeName([x509.RFC822Name(email)]), False
         )
         csr = builder.sign(key, hashes.SHA256(), default_backend())
         csr_fname = "{}.csr.asc".format(self.server)
@@ -845,20 +847,22 @@ class MutualTLS:
         json_response = {}
         try:
             server_url = self.config.get(self.server, "url")
-            pgpb64 = base64.b64encode(str(signature).encode('ascii'))
+            pgpb64 = base64.b64encode(str(signature).encode("ascii"))
             response = requests.post(
                 f"{server_url}/certs",
                 json=payload,
                 headers={
-                    'Authorization': f'PGP-SIG {str(pgpb64.decode("utf-8"))}'
-                }
+                    "Authorization": f'PGP-SIG {str(pgpb64.decode("utf-8"))}'
+                },
             )
             json_response = response.json()
-        except (requests.exceptions.ConnectionError,
-                requests.exceptions.ConnectTimeout):
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.ConnectTimeout,
+        ):
             click.secho(
                 "Connection error, service may be down or you may be disconnected from the internet. Bailing",
-                fg="red"
+                fg="red",
             )
             sys.exit(-1)
         except JSONDecodeError:
@@ -878,25 +882,28 @@ class MutualTLS:
         response = None
         try:
             server_url = self.config.get(self.server, "url")
-            pgpb64 = base64.b64encode(str(signature).encode('ascii'))
+            pgpb64 = base64.b64encode(str(signature).encode("ascii"))
             response = requests.delete(
                 f"{server_url}/certs/{serial_number}",
                 headers={
-                    'Authorization': f'PGP-SIG {str(pgpb64.decode("utf-8"))}'
-                }
+                    "Authorization": f'PGP-SIG {str(pgpb64.decode("utf-8"))}'
+                },
             )
             response = response.json()
-        except (requests.exceptions.ConnectionError,
-                requests.exceptions.ConnectTimeout):
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.ConnectTimeout,
+        ):
             click.secho(
                 "Connection error, service may be down or you may be disconnected from the internet. Bailing",
-                fg="red"
+                fg="red",
             )
             click.secho(response)
             sys.exit(-1)
         except JSONDecodeError:
             click.secho(
-                f"Error handling response from server. Bailing - {response.text}", fg="red"
+                f"Error handling response from server. Bailing - {response.text}",
+                fg="red",
             )
             sys.exit(-1)
         if response.get("error", False):
@@ -914,20 +921,22 @@ class MutualTLS:
         signature = self.gen_sig(json.dumps(payload, sort_keys=True), msg)
         try:
             server_url = self.config.get(self.server, "url")
-            pgpb64 = base64.b64encode(str(signature).encode('ascii'))
+            pgpb64 = base64.b64encode(str(signature).encode("ascii"))
             response = requests.post(
                 f"{server_url}/users",
                 json=json.loads(json.dumps(payload, sort_keys=True)),
                 headers={
-                    'Authorization': f'PGP-SIG {str(pgpb64.decode("utf-8"))}'
-                }
+                    "Authorization": f'PGP-SIG {str(pgpb64.decode("utf-8"))}'
+                },
             )
             response = response.json()
-        except (requests.exceptions.ConnectionError,
-                requests.exceptions.ConnectTimeout):
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.ConnectTimeout,
+        ):
             click.secho(
                 "Connection error, service may be down or you may be disconnected from the internet. Bailing",
-                fg="red"
+                fg="red",
             )
             sys.exit(-1)
         except JSONDecodeError:
@@ -961,29 +970,31 @@ class MutualTLS:
 
         try:
             server_url = self.config.get(self.server, "url")
-            pgpb64 = base64.b64encode(str(signature).encode('ascii'))
+            pgpb64 = base64.b64encode(str(signature).encode("ascii"))
             if payload:
                 response = requests.delete(
                     f"{server_url}/users/{fingerprint}",
                     json=payload,
                     headers={
-                        'Authorization': f'PGP-SIG {str(pgpb64.decode("utf-8"))}'
-                    }
+                        "Authorization": f'PGP-SIG {str(pgpb64.decode("utf-8"))}'
+                    },
                 )
             else:
                 response = requests.delete(
                     f"{server_url}/users/{fingerprint}",
                     headers={
-                        'Authorization': f'PGP-SIG {str(pgpb64.decode("utf-8"))}'
-                    }
+                        "Authorization": f'PGP-SIG {str(pgpb64.decode("utf-8"))}'
+                    },
                 )
 
             response = response.json()
-        except (requests.exceptions.ConnectionError,
-                requests.exceptions.ConnectTimeout):
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.ConnectTimeout,
+        ):
             click.secho(
                 "Connection error, service may be down or you may be disconnected from the internet. Bailing",
-                fg="red"
+                fg="red",
             )
             sys.exit(-1)
         except JSONDecodeError:
@@ -1026,11 +1037,13 @@ class MutualTLS:
         try:
             server_url = self.config.get(self.server, "url")
             response = requests.get(f"{server_url}/crl")
-        except (requests.exceptions.ConnectionError,
-                requests.exceptions.ConnectTimeout):
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.ConnectTimeout,
+        ):
             click.secho(
                 "Connection error, service may be down or you may be disconnected from the internet. Bailing",
-                fg="red"
+                fg="red",
             )
             sys.exit(-1)
         if response.status_code != 200:

@@ -257,7 +257,9 @@ class TestCliBase(unittest.TestCase):
 class TestCliAsAdmin(TestCliBase):
     def test_show_help(self):
         result = self.runner.invoke(cli, ["--help"])
-        self.assertEqual(result.exit_code, 0, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 0, msg=f"{result.output} - {result.exc_info}"
+        )
 
     def test_create_certificate(self):
         result = self.runner.invoke(
@@ -319,7 +321,9 @@ class TestCliAsAdmin(TestCliBase):
                 input_email,
             ],
         )
-        self.assertEqual(result.exit_code, 1, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 1, msg=f"{result.output} - {result.exc_info}"
+        )
 
     def test_create_certificate_with_cli_email_option(self):
         input_email = "test1245566@example.com"
@@ -340,7 +344,9 @@ class TestCliAsAdmin(TestCliBase):
                 input_email,
             ],
         )
-        self.assertEqual(result.exit_code, 0, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 0, msg=f"{result.output} - {result.exc_info}"
+        )
         cert_file_path = os.path.join(self.HOME.name, "test/test.pem")
         with open(cert_file_path, "rb") as cert_file:
             cert = x509.load_pem_x509_certificate(
@@ -351,7 +357,9 @@ class TestCliAsAdmin(TestCliBase):
             if ext.oid == ExtensionOID.SUBJECT_ALTERNATIVE_NAME:
                 email = ext.value.get_values_for_type(x509.RFC822Name)[0]
         self.assertIsNotNone(email)
-        self.assertEqual(email, input_email, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            email, input_email, msg=f"{result.output} - {result.exc_info}"
+        )
 
     def test_create_certificate_with_cli_output_option(self):
         result = self.runner.invoke(
@@ -369,7 +377,9 @@ class TestCliAsAdmin(TestCliBase):
                 self.HOME.name + "/me.pfx",
             ],
         )
-        self.assertEqual(result.exit_code, 0, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 0, msg=f"{result.output} - {result.exc_info}"
+        )
         self.assertTrue(
             os.path.isfile("{}/{}".format(self.HOME.name, "me.pfx"))
         )
@@ -413,7 +423,9 @@ class TestCliAsAdmin(TestCliBase):
                 str(cert.serial_number),
             ],
         )
-        self.assertEqual(result.exit_code, 0, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 0, msg=f"{result.output} - {result.exc_info}"
+        )
 
     def test_add_user_by_fingerprint(self):
         result = self.runner.invoke(
@@ -431,7 +443,9 @@ class TestCliAsAdmin(TestCliBase):
                 "C92FE5A3FBD58DD3EC5AA26BB10116B8193F2DBD",
             ],
         )
-        self.assertEqual(result.exit_code, 0, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 0, msg=f"{result.output} - {result.exc_info}"
+        )
 
     def test_add_user_by_email(self):
         result = self.runner.invoke(
@@ -487,7 +501,9 @@ class TestCliAsAdmin(TestCliBase):
             ],
             input="0",
         )
-        self.assertEqual(result.exit_code, 0, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 0, msg=f"{result.output} - {result.exc_info}"
+        )
 
     def test_remove_user_by_email(self):
         add_user_result = self.runner.invoke(
@@ -526,7 +542,9 @@ class TestCliAsAdmin(TestCliBase):
             ],
             input="0",
         )
-        self.assertEqual(result.exit_code, 0, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 0, msg=f"{result.output} - {result.exc_info}"
+        )
 
     def test_add_admin_by_fingerprint(self):
         result = self.runner.invoke(
@@ -545,7 +563,9 @@ class TestCliAsAdmin(TestCliBase):
                 "C92FE5A3FBD58DD3EC5AA26BB10116B8193F2DBD",
             ],
         )
-        self.assertEqual(result.exit_code, 0, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 0, msg=f"{result.output} - {result.exc_info}"
+        )
 
     def test_add_admin_by_email(self):
         result = self.runner.invoke(
@@ -567,7 +587,9 @@ class TestCliAsAdmin(TestCliBase):
             ],
             input="2",
         )
-        self.assertEqual(result.exit_code, 0, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 0, msg=f"{result.output} - {result.exc_info}"
+        )
 
     def test_remove_admin_by_fingerprint(self):
         add_user_result = self.runner.invoke(
@@ -604,7 +626,9 @@ class TestCliAsAdmin(TestCliBase):
             ],
             input="0",
         )
-        self.assertEqual(result.exit_code, 0, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 0, msg=f"{result.output} - {result.exc_info}"
+        )
 
     def test_remove_admin_by_email(self):
         add_user_result = self.runner.invoke(
@@ -645,13 +669,17 @@ class TestCliAsAdmin(TestCliBase):
             ],
             input="0",
         )
-        self.assertEqual(result.exit_code, 0, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 0, msg=f"{result.output} - {result.exc_info}"
+        )
 
     def get_crl_to_output(self):
         result = self.runner.invoke(
             cli, ["-s", "test", "certificate", "crl", "-o"]
         )
-        self.assertEqual(result.exit_code, 0, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 0, msg=f"{result.output} - {result.exc_info}"
+        )
         crl = x509.load_pem_x509_crl(
             data=bytes(result.output, "UTF-8"), backend=default_backend()
         )
@@ -673,7 +701,9 @@ class TestCliAsAdmin(TestCliBase):
         result = self.runner.invoke(
             cli, ["-s", "test", "certificate", "crl", "-no"]
         )
-        self.assertEqual(result.exit_code, 0, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 0, msg=f"{result.output} - {result.exc_info}"
+        )
         with open("{base}/test/test.crl".format(self.HOME.name), "rb") as crl:
             crl = x509.load_pem_x509_crl(
                 data=f.read(), backend=default_backend()
@@ -721,7 +751,9 @@ class TestCliAsUser(TestCliBase):
 
     def test_show_help(self):
         result = self.runner.invoke(cli, ["--help"])
-        self.assertEqual(result.exit_code, 0, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 0, msg=f"{result.output} - {result.exc_info}"
+        )
 
     def test_init(self):
         result = self.runner.invoke(
@@ -729,7 +761,9 @@ class TestCliAsUser(TestCliBase):
             ["-c", f"{self.HOME.name}/config2.ini", "init"],
             input="Test User\njohndoe@example.com\n1\nn",
         )
-        self.assertEqual(result.exit_code, 0, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 0, msg=f"{result.output} - {result.exc_info}"
+        )
 
     def test_create_certificate(self):
         result = self.runner.invoke(
@@ -745,7 +779,9 @@ class TestCliAsUser(TestCliBase):
                 "create",
             ],
         )
-        self.assertEqual(result.exit_code, 0, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 0, msg=f"{result.output} - {result.exc_info}"
+        )
 
     def test_create_certificate_with_cli_email_option(self):
         result = self.runner.invoke(
@@ -763,7 +799,9 @@ class TestCliAsUser(TestCliBase):
                 "test1245566@example.com",
             ],
         )
-        self.assertEqual(result.exit_code, 1, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 1, msg=f"{result.output} - {result.exc_info}"
+        )
 
     def test_revoke_certificate(self):
         result = self.runner.invoke(
@@ -779,7 +817,9 @@ class TestCliAsUser(TestCliBase):
                 "create",
             ],
         )
-        self.assertEqual(result.exit_code, 0, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 0, msg=f"{result.output} - {result.exc_info}"
+        )
         cert_file_path = os.path.join(self.HOME.name, "test/test.pem")
         with open(cert_file_path, "rb") as cert_file:
             cert = x509.load_pem_x509_certificate(
@@ -800,7 +840,9 @@ class TestCliAsUser(TestCliBase):
                 str(cert.serial_number),
             ],
         )
-        self.assertEqual(result.exit_code, 0, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 0, msg=f"{result.output} - {result.exc_info}"
+        )
 
     def test_add_user_by_fingerprint(self):
         result = self.runner.invoke(
@@ -818,7 +860,9 @@ class TestCliAsUser(TestCliBase):
                 "C92FE5A3FBD58DD3EC5AA26BB10116B8193F2DBD",
             ],
         )
-        self.assertEqual(result.exit_code, 1, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 1, msg=f"{result.output} - {result.exc_info}"
+        )
 
     def test_add_user_by_email(self):
         result = self.runner.invoke(
@@ -839,7 +883,9 @@ class TestCliAsUser(TestCliBase):
             ],
             input="2",
         )
-        self.assertEqual(result.exit_code, 1, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 1, msg=f"{result.output} - {result.exc_info}"
+        )
 
     def test_remove_user_by_fingerprint(self):
         add_user_result = self.runner.invoke(
@@ -874,7 +920,9 @@ class TestCliAsUser(TestCliBase):
             ],
             input="0",
         )
-        self.assertEqual(result.exit_code, 1, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 1, msg=f"{result.output} - {result.exc_info}"
+        )
 
     def test_remove_user_by_email(self):
         add_user_result = self.runner.invoke(
@@ -913,7 +961,9 @@ class TestCliAsUser(TestCliBase):
             ],
             input="0",
         )
-        self.assertEqual(result.exit_code, 1, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 1, msg=f"{result.output} - {result.exc_info}"
+        )
 
     def test_add_admin_by_fingerprint(self):
         result = self.runner.invoke(
@@ -932,7 +982,9 @@ class TestCliAsUser(TestCliBase):
                 "C92FE5A3FBD58DD3EC5AA26BB10116B8193F2DBD",
             ],
         )
-        self.assertEqual(result.exit_code, 1, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 1, msg=f"{result.output} - {result.exc_info}"
+        )
 
     def test_add_admin_by_email(self):
         result = self.runner.invoke(
@@ -954,7 +1006,9 @@ class TestCliAsUser(TestCliBase):
             ],
             input="0",
         )
-        self.assertEqual(result.exit_code, 1, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 1, msg=f"{result.output} - {result.exc_info}"
+        )
 
     def test_remove_admin_by_fingerprint(self):
         add_user_result = self.runner.invoke(
@@ -991,7 +1045,9 @@ class TestCliAsUser(TestCliBase):
             ],
             input="0",
         )
-        self.assertEqual(result.exit_code, 1, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 1, msg=f"{result.output} - {result.exc_info}"
+        )
 
     def test_remove_admin_by_email(self):
         add_user_result = self.runner.invoke(
@@ -1032,13 +1088,17 @@ class TestCliAsUser(TestCliBase):
             ],
             input="0",
         )
-        self.assertEqual(result.exit_code, 1, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 1, msg=f"{result.output} - {result.exc_info}"
+        )
 
     def get_crl_to_output(self):
         result = self.runner.invoke(
             cli, ["-s", "test", "certificate", "crl", "-o"]
         )
-        self.assertEqual(result.exit_code, 0, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 0, msg=f"{result.output} - {result.exc_info}"
+        )
         crl = x509.load_pem_x509_crl(
             data=bytes(result.output, "UTF-8"), backend=default_backend()
         )
@@ -1060,7 +1120,9 @@ class TestCliAsUser(TestCliBase):
         result = self.runner.invoke(
             cli, ["-s", "test", "certificate", "crl", "-no"]
         )
-        self.assertEqual(result.exit_code, 0, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 0, msg=f"{result.output} - {result.exc_info}"
+        )
         with open("{base}/test/test.crl".format(self.HOME.name), "rb") as crl:
             crl = x509.load_pem_x509_crl(
                 data=crl.read(), backend=default_backend()
@@ -1078,6 +1140,7 @@ class TestCliAsUser(TestCliBase):
                 "-----END X509 CRL-----",
                 crl.public_bytes(serialization.Encoding.PEM).decode("UTF-8"),
             )
+
 
 class TestCliAsUserLegacyEmail(TestCliBase):
     @classmethod
@@ -1099,7 +1162,7 @@ class TestCliAsUserLegacyEmail(TestCliBase):
             "state": "CA",
             "locality": "Mountain View",
             "organization_name": "My Org",
-            "sendEmailAsNameAttribute": 'false'
+            "sendEmailAsNameAttribute": "false",
         }
         cls.config["test"] = {"lifetime": 60, "url": "http://localhost:4000"}
         cls.config_path = os.path.join(cls.HOME.name, "config.ini")
@@ -1120,7 +1183,9 @@ class TestCliAsUserLegacyEmail(TestCliBase):
                 "create",
             ],
         )
-        self.assertEqual(result.exit_code, 0, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 0, msg=f"{result.output} - {result.exc_info}"
+        )
 
 
 class TestCliOptions(TestCliBase):
@@ -1156,7 +1221,9 @@ class TestCliOptions(TestCliBase):
             ["-c", self.config_path, "server", "add", "foo"],
             input=server_url + "\n",
         )
-        self.assertEqual(result.exit_code, 0, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 0, msg=f"{result.output} - {result.exc_info}"
+        )
         config = ConfigParser()
         config.read(self.config_path)
         self.assertEqual(config.get("foo", "url"), server_url)
@@ -1165,7 +1232,9 @@ class TestCliOptions(TestCliBase):
         result = self.runner.invoke(
             cli, ["-c", self.config_path, "server", "remove", "foo"]
         )
-        self.assertEqual(result.exit_code, 0, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 0, msg=f"{result.output} - {result.exc_info}"
+        )
         config = ConfigParser()
         config.read(self.config_path)
         self.assertFalse(config.has_section("foo"))
@@ -1184,7 +1253,9 @@ class TestCliOptions(TestCliBase):
                 new_org,
             ],
         )
-        self.assertEqual(result.exit_code, 0, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 0, msg=f"{result.output} - {result.exc_info}"
+        )
         config = ConfigParser()
         config.read(self.config_path)
         self.assertEqual(config.get("test", "organization_name"), new_org)
@@ -1227,7 +1298,9 @@ class TestCliOptionalConfigItems(TestCliBase):
                 "create",
             ],
         )
-        self.assertEqual(result.exit_code, 0, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 0, msg=f"{result.output} - {result.exc_info}"
+        )
 
 
 class TestCliNoConfig(TestCliBase):
@@ -1254,4 +1327,6 @@ class TestCliNoConfig(TestCliBase):
         result = self.runner.invoke(
             cli, ["-c", config_path, "config", "name", '"Test User"']
         )
-        self.assertEqual(result.exit_code, 0, msg=f"{result.output} - {result.exc_info}")
+        self.assertEqual(
+            result.exit_code, 0, msg=f"{result.output} - {result.exc_info}"
+        )

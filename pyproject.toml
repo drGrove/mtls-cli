@@ -1,3 +1,14 @@
+[build-system]
+requires = [
+    "setuptools==62.1.0",
+    "wheel==0.37.1",
+    "setuptools_scm==6.4.2",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+write_to = "src/mtls/__version__.py"
+
 [tool.black]
 line-length = 79
 include = '\.pyi?$'

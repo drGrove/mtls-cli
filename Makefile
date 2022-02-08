@@ -3,7 +3,6 @@ PIP_ENV:=$(shell pipenv --venv)
 ROOT_DIR:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 DESTDIR ?= ~/.local/bin/
 SIGN := 1
-VERSION := $(shell pipenv run python3 setup.py --version)
 
 ifeq ($(OS),Windows_NT)
     UNAME := Windows
@@ -45,17 +44,9 @@ format:
 lint:
 	@pipenv run pycodestyle **/*.py
 
-.PHONY: build-develop
-build-develop:
-	@pipenv run python setup.py develop
-
-.PHONY: build-pypi
-build-pypi:
-	@pipenv run python setup.py sdist bdist_wheel
-
 .PHONY: build
 build: setup
-	@pipenv run python setup.py build
+	@pipenv run python -m build
 
 .PHONY: run
 run:
@@ -77,10 +68,7 @@ coverage:
 coveralls:
 	@pipenv run coveralls
 
-.PHONY: pkg
-pkg: build
-	@pipenv run python setup.py sdist bdist_wheel
-
 .PHONY: clean
 clean:
-	@rm -r build dist mtls.egg-info .eggs $(PIP_ENV)
+	@rm dist || true
+	@pipenv clean

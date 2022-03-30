@@ -878,7 +878,8 @@ class MutualTLS:
 
     def revoke_cert(self, serial_number):
         msg = "Signing Certificate Revokation Payload..."
-        signature = self.gen_sig("NOCONTENT", msg)
+        payload = {}
+        signature = self.gen_sig(json.dumps(payload, sort_keys=True), msg)
         response = None
         try:
             server_url = self.config.get(self.server, "url")
@@ -886,8 +887,10 @@ class MutualTLS:
             response = requests.delete(
                 f"{server_url}/certs/{serial_number}",
                 headers={
-                    "Authorization": f'PGP-SIG {str(pgpb64.decode("utf-8"))}'
+                    "Authorization": f'PGP-SIG {str(pgpb64.decode("utf-8"))}',
+                    "Content-Type": "application/json"
                 },
+                data=json.dumps(payload, sort_keys=True)
             )
             response = response.json()
         except (
@@ -924,10 +927,11 @@ class MutualTLS:
             pgpb64 = base64.b64encode(str(signature).encode("ascii"))
             response = requests.post(
                 f"{server_url}/users",
-                json=json.loads(json.dumps(payload, sort_keys=True)),
                 headers={
-                    "Authorization": f'PGP-SIG {str(pgpb64.decode("utf-8"))}'
+                    "Authorization": f'PGP-SIG {str(pgpb64.decode("utf-8"))}',
+                    "Content-Type": "application/json"
                 },
+                data=json.dumps(payload, sort_keys=True),
             )
             response = response.json()
         except (
@@ -963,29 +967,19 @@ class MutualTLS:
         if is_admin:
             payload["admin"] = True
 
-        if payload:
-            signature = self.gen_sig(json.dumps(payload, sort_keys=True), msg)
-        else:
-            signature = self.gen_sig("NOCONTENT", msg)
+        signature = self.gen_sig(json.dumps(payload, sort_keys=True), msg)
 
         try:
             server_url = self.config.get(self.server, "url")
             pgpb64 = base64.b64encode(str(signature).encode("ascii"))
-            if payload:
-                response = requests.delete(
-                    f"{server_url}/users/{fingerprint}",
-                    json=payload,
-                    headers={
-                        "Authorization": f'PGP-SIG {str(pgpb64.decode("utf-8"))}'
-                    },
-                )
-            else:
-                response = requests.delete(
-                    f"{server_url}/users/{fingerprint}",
-                    headers={
-                        "Authorization": f'PGP-SIG {str(pgpb64.decode("utf-8"))}'
-                    },
-                )
+            response = requests.delete(
+                f"{server_url}/users/{fingerprint}",
+                data=json.dumps(payload, sort_keys=True),
+                headers={
+                    "Authorization": f'PGP-SIG {str(pgpb64.decode("utf-8"))}',
+                    "Content-Type": "application/json"
+                },
+            )
 
             response = response.json()
         except (

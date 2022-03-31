@@ -1,14 +1,17 @@
 """mtls (Mutual TLS) - A cli for creating short-lived client certiicates."""
 
+from configparser import ConfigParser
+from json.decoder import JSONDecodeError
+from pathlib import Path
+import base64
 import binascii
+import json
 import os
 import pkg_resources
 import platform
 import random
 import subprocess
 import sys
-from configparser import ConfigParser
-from pathlib import Path
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -20,7 +23,6 @@ from cryptography.x509.oid import NameOID
 import OpenSSL
 import click
 import gnupg
-import json
 import requests
 
 
@@ -66,6 +68,8 @@ class MutualTLS:
         if self.GNUPGHOME is None:
             self.GNUPGHOME = "{}/{}".format(os.environ.get("HOME"), ".gnupg")
         self.gpg = gnupg.GPG(gnupghome=self.GNUPGHOME)
+        if os.environ.get("DEBUG") == "true":
+            self.gpg.verbose = True
         self.gpg.encoding = "utf-8"
         self.config = self.get_config()
         self.server = server
@@ -215,26 +219,41 @@ class MutualTLS:
         return False
 
     def _get_and_set_root_cert(self):
-        response = self.send_request(
-            server_url="{url}/ca".format(
-                url=self.config.get(self.server, "url")
-            ),
-            method="get",
-        )
+        failure = False
+        response: requests.Response
+        json_data = {}
+        server_url = self.config.get(self.server, "url")
         try:
-            data = response.json()
+            response = requests.get(f"{server_url}/ca")
+            json_data = response.json()
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.ConnectTimeout,
+        ):
+            click.secho(
+                "Connection error, service may be down or you may be disconnected from the internet. Bailing",
+                fg="red",
+            )
+            failure = True
+        except JSONDecodeError:
+            click.secho(
+                "Error parsing Root Certificate from server.", fg="red"
+            )
+            failure = True
         except Exception:
             click.secho(
                 "Error parsing Root Certificate from server.", fg="red"
             )
+            failure = True
+        if failure:
             sys.exit(1)
         # Update the issuer name directly from the server into your config
-        self.config.set(self.server, "issuer", data["issuer"])
+        self.config.set(self.server, "issuer", json_data["issuer"])
         self.update_config()
         # Write the file to the CA Cert File path so that it's accessible to
         # the user and subsequent calls later.
         with open(self.ca_cert_file_path, "w") as ca_cert:
-            ca_cert.write(data["cert"])
+            ca_cert.write(json_data["cert"])
         self.add_root_ca_to_store(self.ca_cert_file_path)
 
     def add_root_ca_to_store(self, ca_cert_file_path):
@@ -282,10 +301,7 @@ class MutualTLS:
                     click.echo(e)
 
     def lock_darwin_keychain(self):
-        cmd = [
-            "security",
-            "lock-keychain"
-        ]
+        cmd = ["security", "lock-keychain"]
         self._run_cmd(cmd, capture_output=True)
 
     def delete_cert_by_name(self, name):
@@ -454,7 +470,7 @@ class MutualTLS:
             for line in wordFile:
                 wordList.append(line.decode().rstrip("\n"))
         pw = []
-        for c in range(10):
+        for _ in range(10):
             pw.append(random.choice(wordList))
         return " ".join(pw).rstrip()
 
@@ -740,8 +756,13 @@ class MutualTLS:
         csr_subject_arr = [
             x509.NameAttribute(NameOID.ORGANIZATION_NAME, organization_name),
             x509.NameAttribute(NameOID.COMMON_NAME, self.friendly_name),
-            x509.NameAttribute(NameOID.EMAIL_ADDRESS, email),
         ]
+        if self.config.getboolean(
+            self.server, "sendEmailAsNameAttribute", fallback=False
+        ):
+            csr_subject_arr.append(
+                x509.NameAttribute(NameOID.EMAIL_ADDRESS, email)
+            )
         if state:
             csr_subject_arr.append(
                 x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, state)
@@ -754,11 +775,12 @@ class MutualTLS:
             csr_subject_arr.append(
                 x509.NameAttribute(NameOID.LOCALITY_NAME, locality)
             )
-        csr = (
-            x509.CertificateSigningRequestBuilder()
-            .subject_name(x509.Name(csr_subject_arr))
-            .sign(key, hashes.SHA256(), default_backend())
+        builder = x509.CertificateSigningRequestBuilder()
+        builder = builder.subject_name(x509.Name(csr_subject_arr))
+        builder = builder.add_extension(
+            x509.SubjectAlternativeName([x509.RFC822Name(email)]), False
         )
+        csr = builder.sign(key, hashes.SHA256(), default_backend())
         csr_fname = "{}.csr.asc".format(self.server)
 
         # If the user overrides the ini configuration programatically, don't
@@ -786,33 +808,6 @@ class MutualTLS:
         if not os.path.isabs(path):
             return os.path.abspath(os.path.join(self.CONFIG_FOLDER_PATH, path))
 
-    def send_request(self, payload=None, method="post", server_url=None):
-        if server_url is None:
-            server_url = self.config.get(self.server, "url")
-        if method == "post":
-            if payload is None:
-                click.secho(
-                    "Payload missing for request. Cancelling",
-                    fg="red",
-                    err=True,
-                )
-            return requests.post(server_url, json=payload, verify=True)
-        if method == "delete":
-            if payload is None:
-                click.secho(
-                    "Payload missing for request. Cancelling",
-                    fg="red",
-                    err=True,
-                )
-            return requests.delete(server_url, json=payload, verify=True)
-        if method == "get":
-            return requests.get(server_url, verify=True)
-        click.secho(
-            "Failed to properly send request to server, "
-            + "invalid method passed to MutualTLS.send_request"
-        )
-        sys.exit(1)
-
     def gen_sig(self, data, echo_msg):
         click.echo(echo_msg)
         if self.options["gpg_password"]:
@@ -821,14 +816,12 @@ class MutualTLS:
                 keyid=self.config.get(self.server, "fingerprint"),
                 passphrase=self.options["gpg_password"],
                 detach=True,
-                clearsign=True,
             )
         else:
             return self.gpg.sign(
                 data,
                 keyid=self.config.get(self.server, "fingerprint"),
                 detach=True,
-                clearsign=True,
             )
 
     def sign_and_send_to_server(self, csr):
@@ -842,42 +835,79 @@ class MutualTLS:
         """
         csr_public_bytes = csr.public_bytes(serialization.Encoding.PEM)
         msg = "Signing CSR for verification on server..."
-        signature = self.gen_sig(csr_public_bytes, msg)
         payload = {
             "csr": csr_public_bytes.decode("utf-8"),
-            "signature": str(signature),
             "lifetime": self.config.get(
                 self.server, "lifetime", fallback=64800
             ),
-            "type": "CERTIFICATE",
         }
-        response = self.send_request(payload)
+        signature = self.gen_sig(json.dumps(payload, sort_keys=True), msg)
+        response: requests.Response
+        json_response = {}
         try:
-            response = response.json()
-        except Exception as e:
+            server_url = self.config.get(self.server, "url")
+            pgpb64 = base64.b64encode(str(signature).encode("ascii"))
+            response = requests.post(
+                f"{server_url}/certs",
+                json=payload,
+                headers={
+                    "Authorization": f'PGP-SIG {str(pgpb64.decode("utf-8"))}'
+                },
+            )
+            json_response = response.json()
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.ConnectTimeout,
+        ):
+            click.secho(
+                "Connection error, service may be down or you may be disconnected from the internet. Bailing",
+                fg="red",
+            )
+            sys.exit(-1)
+        except JSONDecodeError:
             click.secho(
                 "Error handling response from server. Bailing", fg="red"
             )
+            click.secho(response.text, fg="red")
             sys.exit(-1)
-        if response.get("error", False):
-            click.echo(response.get("msg"))
+        if json_response.get("error", False):
+            click.echo(json_response.get("msg"))
             sys.exit(1)
-        return str(response["cert"])
+        return str(json_response.get("cert", ""))
 
-    def revoke_cert(self, fingerprint, serial_number, common_name):
-        payload = {"query": {}, "type": "CERTIFICATE"}
-        if fingerprint is not None:
-            payload["query"]["fingerprint"] = fingerprint
-        if serial_number is not None:
-            payload["query"]["serial_number"] = serial_number
-        if common_name is not None:
-            payload["query"]["common_name"] = common_name
-        msg = "Signing Revoke Request..."
-        payload["signature"] = str(
-            self.gen_sig(json.dumps(payload["query"]).encode("UTF-8"), msg)
-        )
-        response = self.send_request(payload, method="delete")
-        response = response.json()
+    def revoke_cert(self, serial_number):
+        msg = "Signing Certificate Revokation Payload..."
+        payload = {}
+        signature = self.gen_sig(json.dumps(payload, sort_keys=True), msg)
+        response = None
+        try:
+            server_url = self.config.get(self.server, "url")
+            pgpb64 = base64.b64encode(str(signature).encode("ascii"))
+            response = requests.delete(
+                f"{server_url}/certs/{serial_number}",
+                headers={
+                    "Authorization": f'PGP-SIG {str(pgpb64.decode("utf-8"))}',
+                    "Content-Type": "application/json"
+                },
+                data=json.dumps(payload, sort_keys=True)
+            )
+            response = response.json()
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.ConnectTimeout,
+        ):
+            click.secho(
+                "Connection error, service may be down or you may be disconnected from the internet. Bailing",
+                fg="red",
+            )
+            click.secho(response)
+            sys.exit(-1)
+        except JSONDecodeError:
+            click.secho(
+                f"Error handling response from server. Bailing - {response.text}",
+                fg="red",
+            )
+            sys.exit(-1)
         if response.get("error", False):
             click.echo(response.get("msg"))
             sys.exit(1)
@@ -886,12 +916,38 @@ class MutualTLS:
     def add_user(self, fingerprint, is_admin=False):
         msg = "Signing Add User Request..."
         payload = {
-            "type": "ADMIN" if is_admin else "USER",
             "fingerprint": fingerprint,
-            "signature": str(self.gen_sig(fingerprint.encode("UTF-8"), msg)),
         }
-        response = self.send_request(payload, method="post")
-        response = response.json()
+        if is_admin:
+            payload["admin"] = True
+        signature = self.gen_sig(json.dumps(payload, sort_keys=True), msg)
+        try:
+            server_url = self.config.get(self.server, "url")
+            pgpb64 = base64.b64encode(str(signature).encode("ascii"))
+            response = requests.post(
+                f"{server_url}/users",
+                headers={
+                    "Authorization": f'PGP-SIG {str(pgpb64.decode("utf-8"))}',
+                    "Content-Type": "application/json"
+                },
+                data=json.dumps(payload, sort_keys=True),
+            )
+            response = response.json()
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.ConnectTimeout,
+        ):
+            click.secho(
+                "Connection error, service may be down or you may be disconnected from the internet. Bailing",
+                fg="red",
+            )
+            sys.exit(-1)
+        except JSONDecodeError:
+            click.secho(
+                "Error handling response from server. Bailing", fg="red"
+            )
+            sys.exit(-1)
+
         if response.get("error", False):
             click.echo(response.get("msg"))
             sys.exit(1)
@@ -900,21 +956,46 @@ class MutualTLS:
         else:
             _type = "User"
         click.secho(
-            "Added {_type}: {fingerprint}".format(
-                fingerprint=fingerprint, _type=_type
-            ),
+            f"Added {_type}: {fingerprint}",
             fg="green",
         )
 
     def remove_user(self, fingerprint, is_admin=False):
         msg = "Signing Remove User Request..."
-        payload = {
-            "type": "ADMIN" if is_admin else "USER",
-            "fingerprint": fingerprint,
-            "signature": str(self.gen_sig(fingerprint.encode("UTF-8"), msg)),
-        }
-        response = self.send_request(payload, method="post")
-        response = response.json()
+        payload = {}
+        if is_admin:
+            payload["admin"] = True
+
+        signature = self.gen_sig(json.dumps(payload, sort_keys=True), msg)
+
+        try:
+            server_url = self.config.get(self.server, "url")
+            pgpb64 = base64.b64encode(str(signature).encode("ascii"))
+            response = requests.delete(
+                f"{server_url}/users/{fingerprint}",
+                data=json.dumps(payload, sort_keys=True),
+                headers={
+                    "Authorization": f'PGP-SIG {str(pgpb64.decode("utf-8"))}',
+                    "Content-Type": "application/json"
+                },
+            )
+
+            response = response.json()
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.ConnectTimeout,
+        ):
+            click.secho(
+                "Connection error, service may be down or you may be disconnected from the internet. Bailing",
+                fg="red",
+            )
+            sys.exit(-1)
+        except JSONDecodeError:
+            click.secho(
+                "Error handling response from server. Bailing", fg="red"
+            )
+            sys.exit(-1)
+
         if response.get("error", False):
             click.echo(response.get("msg"))
             sys.exit(1)
@@ -923,9 +1004,7 @@ class MutualTLS:
         else:
             _type = "User"
         click.secho(
-            "Removed {_type}: {fingerprint}".format(
-                fingerprint=fingerprint, _type=_type
-            ),
+            f"Removed {_type}: {fingerprint}",
             fg="green",
         )
 
@@ -948,19 +1027,27 @@ class MutualTLS:
     def get_crl(self, output):
         if not output:
             click.echo("Retrieving CRL from server...")
-        response = self.send_request(
-            server_url=self.config.get(self.server, "url") + "/crl",
-            method="get",
-        )
+        try:
+            server_url = self.config.get(self.server, "url")
+            response = requests.get(f"{server_url}/crl")
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.ConnectTimeout,
+        ):
+            click.secho(
+                "Connection error, service may be down or you may be disconnected from the internet. Bailing",
+                fg="red",
+            )
+            sys.exit(-1)
         if response.status_code != 200:
             click.secho(
-                "Failed to retrieve CRL from {}".format(self.server),
+                f"Failed to retrieve CRL from {self.server}, status code: {response.status_code}",
                 fg="red",
                 err=True,
             )
         if output:
             click.echo(response.text)
         else:
-            click.echo("Writing CRL to {}".format(self.crl_file_path))
+            click.echo(f"Writing CRL to {self.crl_file_path}")
             with open(self.crl_file_path, "wb") as crl_file:
                 crl_file.write(bytes(response.text, "UTF-8"))

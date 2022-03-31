@@ -301,19 +301,15 @@ def create_certificate(
 
 
 @certificate.command("revoke", help="Revoke a certificate for a given server.")
-@click.option("--fingerprint", "-f", default=None, help="User PGP Fingerprint")
 @click.option(
     "--serial-number", default=None, help="Serial Number of certificate"
 )
-@click.option(
-    "--name", "-n", default=None, help="The common name on the certificate."
-)
 @click.pass_context
-def revoke_certificate(ctx, fingerprint, serial_number, name):
+def revoke_certificate(ctx, serial_number):
     if not isinstance(ctx.obj["mtls"], MutualTLS):
         click.secho("A server was not provided.", fg="red")
         sys.exit(1)
-    ctx.obj["mtls"].revoke_cert(fingerprint, serial_number, name)
+    ctx.obj["mtls"].revoke_cert(serial_number)
 
 
 @certificate.command("crl", help="Get the CRL for a given server")

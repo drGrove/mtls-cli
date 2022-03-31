@@ -833,7 +833,6 @@ class MutualTLS:
         Returns:
             cert - the certificate
         """
-        failure = False
         csr_public_bytes = csr.public_bytes(serialization.Encoding.PEM)
         msg = "Signing CSR for verification on server..."
         payload = {

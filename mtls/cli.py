@@ -133,7 +133,7 @@ def get_servers(ctx, args, incomplete):
     "-s",
     type=str,
     help="Server to run command against.",
-    autocompletion=get_servers,
+    shell_complete=get_servers,
 )
 @click.option(
     "--config",

@@ -123,7 +123,7 @@ jobs:
           command: pipenv lock -r > requirements.txt
       - run:
           name: Create Distribution
-          command: make pkg
+          command: make build
       - store_artifacts:
           path: dist/
 

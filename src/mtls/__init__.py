@@ -1,15 +1,10 @@
 import os
 import sys
 
-from pkg_resources import get_distribution, DistributionNotFound
+from .__version__ import version
 
 __author__ = "Danny Grove <danny@drgrovellc.com>"
-__version__ = "0.0.0-dev0"
-
-try:
-    __version__ = get_distribution(__name__).version
-except DistributionNotFound:
-    pass
+__version__ = version
 
 # Allows "import mtls" and "from mtls import <name>".
 sys.path.extend([os.path.join(os.path.dirname(__file__), "..")])

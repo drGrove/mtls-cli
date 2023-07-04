@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "1579f8480ed733673f24d8e5d3301418db3773062bf1dd2206132026b3a8cc60"
+            "sha256": "5846ae9dbcd797624d30a516bbaae5664afb3d407fac2c18515a85e4ebea31a4"
         },
         "pipfile-spec": 6,
         "requires": {},
@@ -321,6 +321,14 @@
             "markers": "python_version >= '3'",
             "version": "==3.4"
         },
+        "installer": {
+            "hashes": [
+                "sha256:05d1933f0a5ba7d8d6296bb6d5018e7c94fa473ceb10cf198a92ccea19c27b53",
+                "sha256:a26d3e3116289bb08216e0d0f7d925fcef0b0194eedfa0c944bcaaa106c4b631"
+            ],
+            "index": "pypi",
+            "version": "==0.7.0"
+        },
         "mccabe": {
             "hashes": [
                 "sha256:ab8a6258860da4b6677da4bd2fe5dc2c659cff31b3ee4f7f5d64e79735b80d42",
@@ -418,11 +426,11 @@
         },
         "typing-extensions": {
             "hashes": [
-                "sha256:5d8c9dac95c27d20df12fb1d97b9793ab8b2af8a3a525e68c80e21060c161771",
-                "sha256:935ccf31549830cda708b42289d44b6f74084d616a00be651601a4f968e77c82"
+                "sha256:440d5dd3af93b060174bf433bccd69b0babc3b15b1a8dca43789fd7f61514b36",
+                "sha256:b75ddc264f0ba5615db7ba217daeb99701ad295353c45f9e95963337ceeeffb2"
             ],
             "markers": "python_version >= '3.7'",
-            "version": "==4.7.0"
+            "version": "==4.7.1"
         },
         "urllib3": {
             "hashes": [

@@ -7,9 +7,9 @@ import base64
 import binascii
 import json
 import os
-import pkg_resources
 import platform
 import random
+import secrets
 import subprocess
 import sys
 
@@ -463,16 +463,7 @@ class MutualTLS:
         )
 
     def _genPW(self):
-        wordList = []
-        with pkg_resources.resource_stream(
-            __name__, "share/password_word_list"
-        ) as wordFile:
-            for line in wordFile:
-                wordList.append(line.decode().rstrip("\n"))
-        pw = []
-        for _ in range(10):
-            pw.append(random.choice(wordList))
-        return " ".join(pw).rstrip()
+        return secrets.token_hex(32)
 
     def convert_to_cert(self, cert):
         try:

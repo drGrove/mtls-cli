@@ -13,6 +13,7 @@ setuptools = "==62.1.0"
 wheel = "==0.37.1"
 setuptools_scm = "==6.4.2"
 build = "==0.10.0"
+installer = "==0.7.0"
 
 [packages]
 click = "==8.0.1"

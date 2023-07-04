@@ -18,7 +18,7 @@ commands:
           command: |
             python -m pip install --user pip
             python -m pip install --user pipenv
-            python -m pipenv --three install --dev
+            python -m pipenv install --dev
           environment:
             PIP_SHIMS_BASE_MODULE: pipenv.patched.notpip
       - save_cache:

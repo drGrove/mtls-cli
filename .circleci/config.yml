@@ -61,7 +61,7 @@ commands:
 executors:
   linux:
     docker:
-      - image: circleci/python:3.7-stretch
+      - image: cimg/python:3.11
         environment:
           PIPENV_VENV_IN_PROJECT: true
   osx:

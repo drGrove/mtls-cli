@@ -119,9 +119,6 @@ jobs:
           at: ~/mtls-cli
       - pip_install
       - run:
-          name: Update requirements.txt
-          command: pipenv lock -r > requirements.txt
-      - run:
           name: Create Distribution
           command: make build
       - store_artifacts:

@@ -1,7 +1,7 @@
 # Mutual TLS Client (mtls) #
 
 [![Known Vulnerabilities](https://snyk.io/test/github/drGrove/mtls-cli/badge.svg)](https://snyk.io/test/github/drGrove/mtls-cli)
-[![CircleCI](https://circleci.com/gh/drGrove/mtls-cli/tree/master.svg?style=svg)](https://circleci.com/gh/drGrove/mtls-cli/tree/master)
+[![CircleCI](https://circleci.com/gh/drGrove/mtls-cli/tree/master.svg?style=svg)](https://circleci.com/gh/drGrove/mtls-cli/tree/main)
 ![PyPI](https://img.shields.io/pypi/v/mtls?color=green)
 ![AUR version](https://img.shields.io/aur/version/mtls)
 

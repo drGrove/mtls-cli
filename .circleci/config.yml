@@ -16,9 +16,9 @@ commands:
       - run:
           name: Pipenv Install
           command: |
-            python -m pip install --user pip==18.0
+            python -m pip install --user pip
             python -m pip install --user pipenv
-            python -m pipenv --three install --dev
+            python -m pipenv install --dev
           environment:
             PIP_SHIMS_BASE_MODULE: pipenv.patched.notpip
       - save_cache:
@@ -61,7 +61,7 @@ commands:
 executors:
   linux:
     docker:
-      - image: circleci/python:3.7-stretch
+      - image: cimg/python:3.11
         environment:
           PIPENV_VENV_IN_PROJECT: true
   osx:
@@ -119,11 +119,8 @@ jobs:
           at: ~/mtls-cli
       - pip_install
       - run:
-          name: Update requirements.txt
-          command: pipenv lock -r > requirements.txt
-      - run:
           name: Create Distribution
-          command: make pkg
+          command: make build
       - store_artifacts:
           path: dist/
 

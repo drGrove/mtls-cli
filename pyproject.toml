@@ -1,3 +1,54 @@
+[project]
+name = "mtls"
+dynamic = [
+    "entry-points",
+    "version",
+]
+authors = [
+    { name="Danny Grove", email="danny@drgrovellc.com" }
+]
+description = "A short-lived certificate tool based on the Zero Trust network mode"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { file = "LICENSE" }
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Topic :: Internet",
+    "Topic :: Security :: Cryptography",
+    "Topic :: Security",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3 :: Only",
+]
+
+[project.scripts]
+mtls = "mtls.cli:cli"
+
+[project.urls]
+Homepage = "https://github.com/drGrove/mtls-cli"
+Source = "https://github.com/drGrove/mtls-cli"
+Tracker = "https://github.com/drGrove/mtls-cli/issues"
+
+
+[build-system]
+requires = [
+    "setuptools==62.1.0",
+    "wheel==0.37.1",
+    "setuptools_scm==6.4.2",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+write_to = "src/mtls/__version__.py"
+
 [tool.black]
 line-length = 79
 include = '\.pyi?$'

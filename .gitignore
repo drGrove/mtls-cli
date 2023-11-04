@@ -12,3 +12,8 @@ __pycache__
 *.tar.gz
 .DS_Store
 /src/mtls/__version__.py
+
+
+# Added by cargo
+
+/target

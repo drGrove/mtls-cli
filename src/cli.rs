@@ -41,13 +41,16 @@ pub enum BaseCommands {
 #[derive(Subcommand)]
 pub enum ServerSubCommands {
     Add {
-
+        #[arg(short, long, required = true)]
+        name: String,
+    
+        #[arg(short, long, required = true)]
+        url: String,
     },
-    List {
-
-    },
+    List {},
     Remove {
-
+        #[arg(short, long, required = true)]
+        name: String
     }
 }
 

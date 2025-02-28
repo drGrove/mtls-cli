@@ -1,13 +1,13 @@
 use std::error::Error;
-use std::fs;
 use std::io::Write;
 use std::io;
-use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use chrono::{DateTime, Utc};
-use gpgme::{Context, KeyListMode, Protocol};
+use gpgme;
+use which::which;
 
+pub const CONFIG_DIR_PREFIX: &str = "mtls";
 
 pub fn inquire(prompt: String) -> String {
     print!("{} ", prompt);
@@ -17,17 +17,19 @@ pub fn inquire(prompt: String) -> String {
     return input.trim().to_string();
 }
 
-pub fn ensure_directory_exists(path: &Path) -> std::io::Result<()> {
-    if !path.exists() {
-        println!("Path does not exist. Creating: {}", path.display());
-        fs::create_dir_all(path)?;
-    }
-    Ok(())
+pub fn get_gpg_ctx() -> gpgme::Context {
+    let mut gpg_ctx = gpgme::Context::from_protocol(gpgme::Protocol::OpenPgp)
+        .expect("Could not instantiate GPG context");
+    // Using which to ensure that we get the users current gpg path.
+    // This allows things like the qubes split-gpg proxy to work
+    let gpg_path = which("gpg").unwrap().display().to_string();
+    let _ = gpg_ctx.set_engine_path(gpg_path);
+    return gpg_ctx
 }
 
 pub fn get_gpg_keys_for_email(email: Vec<String>) -> Result<Vec<gpgme::Key>, Box<dyn Error>> {
-    let mut gpg_ctx = Context::from_protocol(Protocol::OpenPgp)?;
-    let mode = KeyListMode::empty();
+    let mut gpg_ctx = get_gpg_ctx();
+    let mode = gpgme::KeyListMode::empty();
     gpg_ctx.set_key_list_mode(mode)?;
     let gpg_keys = gpg_ctx.find_keys(email)?;
     let keys: Result<Vec::<gpgme::Key>,_> = gpg_keys.collect();
@@ -75,4 +77,8 @@ pub fn print_key_info(key: &gpgme::Key) -> Result<(), Box<dyn Error>> {
     }
     println!();
     Ok(())
+}
+
+pub fn sign_data() {
+
 }

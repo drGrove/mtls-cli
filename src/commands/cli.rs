@@ -1,20 +1,36 @@
-use clap::{Parser, Subcommand};
 use std::path::PathBuf;
+use lazy_static::lazy_static;
+use std::env;
 
-const CLI_NAME: &str = "mtlsctl";
-const CLI_VERSION: &str = "0.1";
-const CLI_AUTHOR: &str = "Danny Grove";
-const CLI_ABOUT: &str = "Short-lived Client Certificate Creation";
+use clap::{Parser, Subcommand};
+use xdg;
+
+use crate::util::CONFIG_DIR_PREFIX;
+
+lazy_static! {
+    static ref DEFAULT_CONFIG_PATH: PathBuf = {
+        xdg::BaseDirectories::with_prefix(CONFIG_DIR_PREFIX)
+            .unwrap()
+            .place_config_file("config.ini")
+            .expect("Failed to place config.ini in the XDG config directory")
+    };
+}
+
 
 #[derive(Parser)]
-#[command(name = CLI_NAME, version = CLI_VERSION, author = CLI_AUTHOR, about = CLI_ABOUT)]
+#[command(
+    name = env!("CARGO_PKG_NAME"),
+    version = env!("CARGO_PKG_VERSION"),
+    author = env!("CARGO_PKG_AUTHORS"),
+    about = env!("CARGO_PKG_DESCRIPTION")
+)]
 pub struct Cli {
     /// Server to run command against
     #[arg(short, long)]
     pub server: Option<String>,
     /// Config file
-    #[arg(short='c', long="config")]
-    pub config_path: Option<PathBuf>,
+    #[arg(short='c', long="config", default_value_os_t = DEFAULT_CONFIG_PATH.to_path_buf())]
+    pub config_path: PathBuf,
 
     #[command(subcommand)]
     pub command: BaseCommands,
@@ -43,7 +59,7 @@ pub enum ServerSubCommands {
     Add {
         #[arg(short, long, required = true)]
         name: String,
-    
+
         #[arg(short, long, required = true)]
         url: String,
     },
@@ -61,9 +77,6 @@ pub enum CertificateSubCommands {
         output: Option<PathBuf>,
 
         #[arg(long)]
-        friendly_name: Option<String>,
-
-        #[arg(long)]
         user_email: Option<String>,
 
         #[arg(long)]
@@ -73,5 +86,4 @@ pub enum CertificateSubCommands {
         common_name: Option<String>,
     },
 }
-
 

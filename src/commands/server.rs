@@ -3,7 +3,7 @@ use std::process;
 
 use configparser::ini::{Ini, WriteOptions};
 
-use crate::cli::{Cli,ServerSubCommands};
+use crate::commands::cli::{Cli,ServerSubCommands};
 
 
 pub struct ServerCommand {}
@@ -12,22 +12,19 @@ impl ServerCommand {
     pub fn handle(command: &ServerSubCommands, cli: &Cli) {
         let mut config = Ini::new();
         let mut controller;
-        if let Some(config_path) = cli.config_path.as_ref() {
-            if config_path.exists() {
-                let _ = config.load(config_path);
-                controller = ServerController::new(&mut config, config_path.to_path_buf());
-            } else {
-                println!("No config to load");
-                return
-            }
-            match command {
-                ServerSubCommands::Add { url, name } => controller.add(url.to_string(), name.to_string()),
-                ServerSubCommands::List {} => controller.list(),
-                ServerSubCommands::Remove { name } => controller.remove(name.to_string()),
-            }
+        let config_path: PathBuf = cli.config_path.clone();
+        println!("Config path: {}", config_path.display());
+        if config_path.exists() {
+            let _ = config.load(&config_path);
+            controller = ServerController::new(&mut config, config_path);
         } else {
-            eprintln!("Could not get config_path: {}", cli.config_path.as_ref().expect("Config Path should be set").to_str().unwrap_or("Invalid UTF-8 path").to_string());
+            println!("No config to load");
             return
+        }
+        match command {
+            ServerSubCommands::Add { url, name } => controller.add(url.to_string(), name.to_string()),
+            ServerSubCommands::List {} => controller.list(),
+            ServerSubCommands::Remove { name } => controller.remove(name.to_string()),
         }
     }
 }
